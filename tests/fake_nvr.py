@@ -51,6 +51,30 @@ def make_event(event_id: int, camera_id: str, start: int, end: int | None = None
     }
 
 
+def make_state_sensor(sensor_id: str, camera_id: str, name: str, classes=("closed", "moving", "open"), **fields: Any):
+    sensor = {
+        "id": sensor_id,
+        "cameraId": camera_id,
+        "config": {
+            "name": name,
+            "classes": list(classes),
+            "crop": [0.1, 0.1, 0.9, 0.9],
+            "threshold": 0.8,
+            "intervalSec": 10,
+            "onMotion": True,
+            "enabled": True,
+        },
+        "state": None,
+        "since": None,
+        "score": None,
+        "candidate": None,
+        "problem": None,
+        "createdAt": 1,
+    }
+    sensor.update(fields)
+    return sensor
+
+
 PTZ_FULL = {
     "supported": True,
     "continuous": True,
@@ -87,6 +111,8 @@ class FakeNVR:
             make_camera("cam2", "Garage", 1),
         ]
         self.events: list[dict[str, Any]] = []
+        self.state_sensors: list[dict[str, Any]] = []
+        self.legacy = False  # an NVR from before state classification: no route, no snapshot field
         self.ptz: dict[str, dict[str, Any]] = {"cam1": deepcopy(PTZ_FULL), "cam2": deepcopy(PTZ_NONE)}
         self.system = {
             "workers": [
@@ -136,6 +162,7 @@ class FakeNVR:
         r.add_delete("/api/cameras/{id}/ptz/presets", self._preset_remove)
         r.add_get("/api/events", self._events)
         r.add_get("/api/events/{id}/thumb.jpg", self._thumb)
+        r.add_get("/api/states", self._states)
         r.add_get("/api/system", self._system)
         r.add_post("/api/exports", self._export_create)
         r.add_get("/api/exports/{id}", self._export_get)
@@ -172,11 +199,14 @@ class FakeNVR:
 
     def snapshot(self) -> dict[str, Any]:
         admin = self.role == "admin"
-        return {
+        snapshot = {
             "cameras": self.cameras,
             "workers": self.system["workers"] if admin else None,
             "events": [e for e in self.events if e["endMs"] is None],
         }
+        if not self.legacy:
+            snapshot["stateSensors"] = self.state_sensors
+        return snapshot
 
     def calls(self, method: str, suffix: str) -> list[Any]:
         return [body for m, path, body in self.requests if m == method and path.endswith(suffix)]
@@ -320,6 +350,12 @@ class FakeNVR:
         self._auth(request)
         self.requests.append(("GET", request.path, None))
         return web.Response(body=THUMB, content_type="image/jpeg")
+
+    async def _states(self, request: web.Request) -> web.Response:
+        self._auth(request)
+        if self.legacy:
+            return web.json_response({"error": "not found"}, status=404)
+        return web.json_response(self.state_sensors)
 
     async def _system(self, request: web.Request) -> web.Response:
         self._auth(request)

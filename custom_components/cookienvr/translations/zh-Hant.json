@@ -247,6 +247,22 @@
       "last_event": {
         "name": "最近事件"
       },
+      "state_sensor": {
+        "state_attributes": {
+          "score": {
+            "name": "信心"
+          },
+          "since": {
+            "name": "切換時間"
+          },
+          "candidate": {
+            "name": "候選狀態"
+          },
+          "problem": {
+            "name": "問題"
+          }
+        }
+      },
       "disk_total": {
         "name": "磁碟容量"
       },

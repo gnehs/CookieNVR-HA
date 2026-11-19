@@ -22,6 +22,7 @@ SSE_READ_TIMEOUT = 45
 REQUEST_TIMEOUT = 15
 
 EVENT_COOKIENVR = "cookienvr_event"
+EVENT_STATE_CHANGE = "cookienvr_state_change"
 
 ISSUE_NVR_OUTDATED = "nvr_outdated"
 ISSUE_INTEGRATION_OUTDATED = "integration_outdated"

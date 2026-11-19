@@ -1,4 +1,4 @@
-"""Last-event time per camera and NVR health sensors."""
+"""Last-event time and state classification per camera, plus NVR health sensors."""
 
 from __future__ import annotations
 
@@ -93,6 +93,10 @@ def _nvr_wanted(state: NVRState) -> set[str]:
     return set(SENSORS_BY_KEY) if state.admin and state.system is not None else set()
 
 
+def _state_sensors_wanted(state: NVRState) -> set[str]:
+    return {sid for sid, sensor in state.state_sensors.items() if sensor["cameraId"] in state.cameras}
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: CookieNVRConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
@@ -101,6 +105,7 @@ async def async_setup_entry(
         entry,
         async_add_entities,
         (camera_keys, lambda coordinator, camera_id: LastEventSensor(coordinator, camera_id)),
+        (_state_sensors_wanted, lambda coordinator, sensor_id: StateSensor(coordinator, sensor_id)),
         (_nvr_wanted, lambda coordinator, key: NvrSensor(coordinator, SENSORS_BY_KEY[key])),
     )
 
@@ -130,6 +135,62 @@ class LastEventSensor(CookieNVRCameraEntity, SensorEntity):
             "score": event.get("score"),
             "labels": list(event.get("labels") or []),
             "in_progress": event.get("endMs") is None,
+        }
+
+
+class StateSensor(CookieNVRCameraEntity, SensorEntity):
+    """What a state classification sensor currently reads, e.g. a shutter that is open, moving or closed.
+
+    Unknown (not unavailable) while the NVR has no verified state: the NVR itself resets the state when it
+    stops classifying, so `problem` explains the gap without making automations see an unavailable flap.
+    """
+
+    _attr_device_class = SensorDeviceClass.ENUM
+
+    def __init__(self, coordinator: CookieNVRCoordinator, sensor_id: str) -> None:
+        # the NVR's sensor id never changes, so renaming the sensor or its camera keeps the entity
+        sensor = coordinator.data.state_sensors[sensor_id]
+        super().__init__(coordinator, sensor["cameraId"], f"state_{sensor_id}")
+        self._attr_translation_key = "state_sensor"
+        self._sensor_id = sensor_id
+
+    @property
+    def _sensor(self) -> Json | None:
+        return self.coordinator.data.state_sensors.get(self._sensor_id) if self.coordinator.data else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._sensor is not None
+
+    @property
+    def name(self) -> str | None:
+        sensor = self._sensor
+        return sensor["config"]["name"] if sensor else None
+
+    @property
+    def options(self) -> list[str]:
+        sensor = self._sensor
+        return list(sensor["config"]["classes"]) if sensor else []
+
+    @property
+    def native_value(self) -> str | None:
+        sensor = self._sensor
+        value = sensor.get("state") if sensor else None
+        return value if value in self.options else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        sensor = self._sensor
+        if sensor is None:
+            return None
+        candidate = sensor.get("candidate")
+        problem = sensor.get("problem")
+        since = sensor.get("since")
+        return {
+            "score": sensor.get("score"),
+            "since": datetime.fromtimestamp(since / 1000, UTC) if since else None,
+            "candidate": candidate["label"] if candidate else None,
+            "problem": problem["code"] if problem else None,
         }
 
 

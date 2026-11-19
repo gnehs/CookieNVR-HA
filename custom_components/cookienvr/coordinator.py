@@ -19,7 +19,7 @@ from .api import (
     CookieNVRClient,
     CookieNVRConnectionError,
 )
-from .const import DOMAIN, EVENT_COOKIENVR, LOGGER, POLL_INTERVAL, SSE_BACKOFF_MAX, SSE_BACKOFF_MIN
+from .const import DOMAIN, EVENT_COOKIENVR, EVENT_STATE_CHANGE, LOGGER, POLL_INTERVAL, SSE_BACKOFF_MAX, SSE_BACKOFF_MIN
 from .models import Json, NVRState, camera_name, event_labels
 
 type CookieNVRConfigEntry = ConfigEntry[CookieNVRCoordinator]
@@ -65,6 +65,7 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
             cameras = await self.client.cameras()
             since = int((datetime.now(UTC) - RECENT_EVENTS_WINDOW).timestamp() * 1000)
             events = await self.client.events(since)
+            state_sensors = await self.client.state_sensors()
             admin = me.get("role") == "admin"
             system = None
             if admin:
@@ -88,6 +89,7 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
         else:
             state.workers = {}
         self._replace_cameras(state, cameras)
+        state.state_sensors = {s["id"]: s for s in state_sensors}
 
         latest: dict[str, Json] = {}
         finished: dict[int, Json] = {}
@@ -257,6 +259,9 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
             if workers is not None:
                 state.workers = {w["id"]: w for w in workers}
             state.motion = set()
+            sensors = payload.get("stateSensors")
+            if sensors is not None:  # absent on an NVR without state classification: keep what polling found
+                state.state_sensors = {s["id"]: s for s in sensors}
             self._reconcile_active(state, payload.get("events", []), {})
             refresh = True  # snapshot has no history, system usage or PTZ details
         elif kind == "cameras":
@@ -277,6 +282,13 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
             (state.motion.add if payload.get("active") else state.motion.discard)(payload["cameraId"])
         elif kind == "event":
             self._apply_event(state, payload["phase"], payload["event"])
+        elif kind == "state-sensor":
+            state.state_sensors[payload["id"]] = payload
+        elif kind == "state-sensor-removed":
+            state.state_sensors.pop(payload["id"], None)
+        elif kind == "state-change":
+            self._fire_state_change(state, payload)
+            return
         else:
             return
         self.async_set_updated_data(state)
@@ -305,6 +317,37 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
         if not events:
             del state.active[camera_id]
         self._fire(phase, event, event_labels(event) - event_labels(known) if phase == "update" else None)
+
+    def _fire_state_change(self, state: NVRState, change: Json) -> None:
+        """Fire `cookienvr_state_change`. The sensor entity itself follows `state-sensor`, not this message."""
+        camera_id = change["cameraId"]
+        camera = state.cameras.get(camera_id)
+        if camera is None:
+            return
+        sensor = state.state_sensors.get(change["sensorId"])
+        entry = self.config_entry
+        device = dr.async_get(self.hass).async_get_device_by_identifier(
+            (DOMAIN, camera_device_id(entry.entry_id, camera_id)), entry.entry_id
+        )
+        self.hass.bus.async_fire(
+            EVENT_STATE_CHANGE,
+            {
+                "camera": camera_name(camera),
+                "camera_id": camera_id,
+                "device_id": device.id if device else None,
+                "sensor": sensor["config"]["name"] if sensor else None,
+                "sensor_id": change["sensorId"],
+                "from": change.get("from"),
+                "to": change["to"],
+                "score": change.get("score"),
+                "changed_at": datetime.fromtimestamp(change["at"] / 1000, UTC).isoformat() if "at" in change else None,
+                "thumbnail_url": (
+                    self.client.token_url(f"/api/state-changes/{change['id']}/thumb.jpg")
+                    if change.get("thumbUrl")
+                    else None
+                ),
+            },
+        )
 
     # ---- device registry -----------------------------------------------
 

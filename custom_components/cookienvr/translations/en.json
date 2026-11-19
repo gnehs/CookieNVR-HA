@@ -247,6 +247,22 @@
       "last_event": {
         "name": "Last event"
       },
+      "state_sensor": {
+        "state_attributes": {
+          "score": {
+            "name": "Confidence"
+          },
+          "since": {
+            "name": "Since"
+          },
+          "candidate": {
+            "name": "Candidate"
+          },
+          "problem": {
+            "name": "Problem"
+          }
+        }
+      },
       "disk_total": {
         "name": "Disk size"
       },

@@ -39,6 +39,7 @@ NVR 新增或刪除攝影機後，HA 自動同步，不需要重啟整合。
 | `binary_sensor.<名稱>_motion` | 動作與事件進行中 |
 | `binary_sensor.<名稱>_online` | 攝影機上線 |
 | `binary_sensor.<名稱>_<類別>` | 物件辨識勾選的每個類別一個（人、汽車、狗…），進行中的事件含該類別時開啟 |
+| `sensor.<名稱>_<感應器>` | 狀態辨識（鐵捲門：關／移動中／開），每個狀態感應器一個，見下方 |
 | `switch.<名稱>_recording`、`_detection` | 錄影與偵測開關（需管理員 Token） |
 | `select.<名稱>_ptz_preset`、`button.<名稱>_ptz_*` | PTZ 預置點與上下左右微調（有 PTZ 才有） |
 | `image.<名稱>_last_event`、`sensor.<名稱>_last_event` | 最近事件的縮圖與時間 |
@@ -65,6 +66,28 @@ automation:
       - action: notify.mobile_app_phone
         data:
           message: 前門有人
+```
+
+### 狀態辨識
+
+在 CookieNVR 為攝影機畫面的某個區域訓練「狀態感應器」（例如「鐵捲門」：關、移動中、開）後，每個感應器會成為所屬攝影機底下的一個 `sensor`，例如 `sensor.qian_men_tie_juan_men`。新增、改名、刪除感應器或調整類別都會自動同步，不需要重新載入整合；實體以感應器的固定編號識別，改名不會讓自動化失效。
+
+- 狀態是 enum 感應器，選項就是 CookieNVR 設定的類別（依設定順序）。還沒有確定的狀態時是 `unknown`：剛啟動、尚未通過連續驗證、尚未訓練、已暫停，或攝影機沒有畫面（CookieNVR 在這些情況會自己把狀態改回未知）。只有 NVR 連不上或感應器、攝影機被刪除時才會是 `unavailable`。
+- 屬性：`score`（切換時的信心 0 到 1）、`since`（切換到目前狀態的時間）、`candidate`（正在驗證、尚未切換的候選狀態）、`problem`（目前沒在辨識的原因：`disabled`、`untrained`、`stale-model`、`camera-off`、`paused`、`worker`，正常時為空）。
+- 每次切換也會觸發事件 `cookienvr_state_change`，內容有 `camera`、`camera_id`、`device_id`、`sensor`、`sensor_id`、`from`（該感應器第一筆為空）、`to`、`score`、`changed_at` 與 `thumbnail_url`（切換時那塊區域的畫面，網址帶 API Token，請保密）。想在通知附上圖片、或只關心特定的 `from`／`to` 時用事件；一般自動化直接用實體的狀態觸發即可。
+- 舊版 CookieNVR（沒有狀態辨識）照常運作，只是不會有這些實體。
+
+```yaml
+automation:
+  - alias: 鐵捲門開了就通知
+    triggers:
+      - trigger: state
+        entity_id: sensor.qian_men_tie_juan_men
+        to: "開"
+    actions:
+      - action: notify.notify
+        data:
+          message: 鐵捲門開了
 ```
 
 ### 服務
@@ -137,6 +160,8 @@ Cameras added or removed on the NVR appear or disappear in Home Assistant withou
 ### Entities, services and events
 
 Each camera is a device, and the NVR is a device of its own. Entities are listed in the table above. Services `cookienvr.ptz_move`, `cookienvr.ptz_preset` and `cookienvr.export_clip` target the integration's camera entities. Every object class ticked in CookieNVR becomes its own occupancy binary sensor that turns on as soon as an event in progress confirms the class and off when the event ends; sensors follow the ticked classes without a reload, keep their entity across renames and re-ticking, and carry `last_detected` and `event_id`. The bundled model is trained on COCO, which has no package class, so package sensors need a custom model. Every event start, every newly confirmed class (`state: update`) and every end fires `cookienvr_event` with `camera`, `camera_id`, `device_id`, `event_id`, `state`, `score`, `labels`, `new_labels`, `thumbnail_url` and `playback_url`; trigger on `new_labels` containing `person` to be told once per event. The thumbnail URL carries the API token, so keep it private.
+
+Each state sensor trained in CookieNVR (for example a shutter that is closed, moving or open) becomes an enum `sensor` on its camera's device, such as `sensor.front_door_shutter`, with the classes you configured as its options. Sensors, renames and class changes follow without a reload, and the entity is keyed by the sensor's fixed id so a rename keeps your automations. The state is `unknown` while CookieNVR has no verified state (just started, not yet confirmed, untrained, paused or the camera has no picture; CookieNVR resets the state itself in these cases), and `unavailable` only when the NVR cannot be reached or the sensor or camera is gone. Attributes are `score`, `since`, `candidate` (the state being verified) and `problem` (`disabled`, `untrained`, `stale-model`, `camera-off`, `paused` or `worker`, empty when all is well). Every change also fires `cookienvr_state_change` with `camera`, `camera_id`, `device_id`, `sensor`, `sensor_id`, `from` (empty for a sensor's first reading), `to`, `score`, `changed_at` and `thumbnail_url` (the picture of the region at that moment, carrying the API token); use it to attach the picture to a notification, and trigger on the entity's state otherwise. A CookieNVR without state classification keeps working and simply has no such sensors.
 
 ### Reliability
 

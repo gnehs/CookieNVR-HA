@@ -19,6 +19,8 @@ class NVRState:
     ptz: dict[str, Json] = field(default_factory=dict)
     system: Json | None = None
     workers: dict[str, Json] = field(default_factory=dict)
+    # state sensor id -> StateSensorDto; stays empty on an NVR that predates state classification
+    state_sensors: dict[str, Json] = field(default_factory=dict)
     admin: bool = False
     username: str = ""
     # camera id -> label -> {"event_id", "at"}: the latest event that carried each object class

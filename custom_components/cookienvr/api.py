@@ -129,6 +129,15 @@ class CookieNVRClient:
     async def cameras(self) -> list[Json]:
         return await self._request("GET", "/api/cameras")
 
+    async def state_sensors(self) -> list[Json]:
+        """State classification sensors; an NVR that predates the feature answers 404, which is no sensors."""
+        try:
+            return await self._request("GET", "/api/states")
+        except CookieNVRApiError as err:
+            if err.status == 404:
+                return []
+            raise
+
     async def system(self) -> Json:
         return await self._request("GET", "/api/system")
 
