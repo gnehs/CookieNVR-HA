@@ -24,7 +24,7 @@ CookieNVR（家用 NVR）的 Home Assistant 整合。狀態透過 SSE 即時推�
 1. CookieNVR 在區域網路上廣播自己（mDNS，需要 host 網路），HA 的「裝置與服務」會出現「已發現：CookieNVR」，按「新增」。找不到時改按「新增整合 → CookieNVR」輸入網址（例如 `http://192.168.1.10:8765`）。
 2. HA 顯示一個連結與一組代碼（例如 `BCDF-GHJK`）。開啟連結、登入 CookieNVR，確認代碼一樣後按「允許」，HA 會自動完成設定。不需要建立或複製任何 Token。
 3. HA 拿到的權限跟按「允許」的帳號相同：一般使用者可以看畫面、收事件、控制 PTZ；要在 HA 切換錄影與偵測開關、看磁碟用量，請用管理員帳號核准。核准後的連線會列在 CookieNVR 的「帳號 → 連接其他 App」，可隨時撤銷。
-4. 撤銷後 HA 會要求重新連接，走同一個核准流程。NVR 換了 IP 後 HA 會從廣播自動更新網址。
+4. 撤銷後 HA 會要求重新連接，走同一個核准流程。NVR 換了 IP 或 port 後 HA 會從廣播自動更新網址；更新前會先要新位址證明它就是發這組 Token 的那台 NVR（Token 本身不會送出），別的裝置冒充同一台 NVR 拿不到 Token。
 5. 打不開核准頁時（例如 HA 用的網址從你的瀏覽器連不到），可以在 CookieNVR 的「帳號 → 連接其他 App」建立 API Token，貼到設定表單的「API Token（進階）」欄位。
 
 NVR 新增或刪除攝影機後，HA 自動同步，不需要重啟整合。
@@ -129,7 +129,7 @@ Home Assistant integration for CookieNVR, a home NVR. State is pushed over SSE, 
 1. CookieNVR announces itself on the local network (mDNS, needs host networking), so Settings, Devices & services shows it as discovered. Select Add. If it does not show up, add the CookieNVR integration and enter the address (for example `http://192.168.1.10:8765`).
 2. Home Assistant shows a link and a code such as `BCDF-GHJK`. Open the link, sign in to CookieNVR, check that the code matches and select Allow. Setup finishes by itself. There is no token to create or copy.
 3. Home Assistant gets the permissions of the account that approved it. A regular user covers viewing, events and PTZ. Approve with an administrator for the recording and detection switches and the disk sensors. The connection is listed under Account, Connect other apps in CookieNVR and can be revoked there.
-4. After a revoke, Home Assistant asks you to reconnect through the same approval. When the NVR gets a new IP address, discovery updates the entry.
+4. After a revoke, Home Assistant asks you to reconnect through the same approval. When the NVR gets a new IP address or port, discovery updates the entry, but only after the new address proves it issued the stored token (without the token being sent), so a device announcing itself as your NVR gets nothing.
 5. If the approval page cannot be opened, create an API token under Account, Connect other apps and paste it into the advanced API token field.
 
 Cameras added or removed on the NVR appear or disappear in Home Assistant without a reload.

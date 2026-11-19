@@ -120,6 +120,9 @@ class CookieNVRClient:
     async def poll_link(self, poll_secret: str) -> Json:
         return await self._request("POST", "/api/link/poll", body={"pollSecret": poll_secret}, auth=False)
 
+    async def link_proof(self, lookup: str, nonce: str) -> Json:
+        return await self._request("POST", "/api/link/proof", body={"lookup": lookup, "nonce": nonce}, auth=False)
+
     async def me(self) -> Json:
         return await self._request("GET", "/api/me")
 

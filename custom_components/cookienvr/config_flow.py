@@ -8,6 +8,9 @@ someone signed in to CookieNVR approves it. Pasting an API token stays available
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
+import secrets
 import time
 from collections.abc import Mapping
 from ipaddress import IPv6Address
@@ -141,7 +144,14 @@ class CookieNVRConfigFlow(ConfigFlow, domain=DOMAIN):
         url = f"http://{host}:{discovery_info.port}"
 
         await self.async_set_unique_id(instance_id)
-        self._abort_if_unique_id_configured(updates={CONF_URL: url})
+        entry = self.hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, instance_id)
+        if entry is not None:
+            old = entry.data.get(CONF_URL)
+            if old and old != url and CONF_TOKEN in entry.data and await self._moved_here(entry, url, instance_id):
+                LOGGER.info("CookieNVR %s moved from %s to %s", instance_id, old, url)
+                self.hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_URL: url})
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
+            return self.async_abort(reason="already_configured")
 
         error, info = await self._fetch_info(url, True)
         if error is not None:
@@ -151,6 +161,29 @@ class CookieNVRConfigFlow(ConfigFlow, domain=DOMAIN):
         self._url, self._info = url, info
         self.context["title_placeholders"] = {"name": info.get("siteName") or "CookieNVR"}
         return await self.async_step_zeroconf_confirm()
+
+    async def _moved_here(self, entry: Any, url: str, instance_id: str) -> bool:
+        """Only follow an announcement to a new address when that host proves it issued our token.
+
+        Anyone on the network can announce our instance id, so the stored token is never sent to the
+        new address until it answers a challenge only the real NVR can: an HMAC keyed by the token's
+        SHA-256, which the NVR keeps instead of the token. While the old address still answers as the
+        same NVR, the announcement is ignored outright.
+        """
+        verify = entry.data.get(CONF_VERIFY_SSL, True)
+        error, info = await self._fetch_info(entry.data[CONF_URL], verify)
+        if error is None and info.get("instanceId") == instance_id:
+            return False
+        key = hashlib.sha256(entry.data[CONF_TOKEN].encode()).hexdigest()
+        lookup = hashlib.sha256(f"cnvr-proof-id:{key}".encode()).hexdigest()
+        nonce = secrets.token_hex(16)
+        try:
+            answer = await self._client(url, verify_ssl=verify).link_proof(lookup, nonce)
+        except (CookieNVRConnectionError, CookieNVRApiError, CookieNVRAuthError):
+            return False
+        expected = hmac.new(key.encode(), f"{nonce}|{instance_id}".encode(), hashlib.sha256).hexdigest()
+        proof = answer.get("proof") if isinstance(answer, dict) else None
+        return isinstance(proof, str) and hmac.compare_digest(proof, expected)
 
     async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
@@ -168,7 +201,11 @@ class CookieNVRConfigFlow(ConfigFlow, domain=DOMAIN):
         client = self._client(self._url)
         secret = self._link["pollSecret"]
         interval = max(0.1, float(self._link.get("interval", 2)))
-        deadline = time.monotonic() + max(0.0, (self._link["expiresAt"] - time.time() * 1000) / 1000)
+        # expiresIn is relative, so clock skew between HA and the NVR does not matter
+        expires_in = self._link.get("expiresIn")
+        if not isinstance(expires_in, (int, float)):
+            expires_in = (self._link["expiresAt"] - time.time() * 1000) / 1000
+        deadline = time.monotonic() + max(0.0, float(expires_in))
         failures = 0
         while time.monotonic() < deadline + interval:
             await asyncio.sleep(interval)

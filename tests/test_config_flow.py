@@ -183,19 +183,52 @@ async def test_same_nvr_cannot_be_added_twice(hass: HomeAssistant, nvr: FakeNVR)
     assert result["reason"] == "already_configured"
 
 
-async def test_rediscovery_at_a_new_address_updates_the_entry(hass: HomeAssistant, nvr: FakeNVR) -> None:
-    old = "http://192.168.1.10:8765"
-    entry = MockConfigEntry(domain=DOMAIN, unique_id=INSTANCE_ID, data={CONF_URL: old, CONF_TOKEN: TOKEN})
-    entry.add_to_hass(hass)
+async def _rediscover(hass: HomeAssistant, entry: MockConfigEntry, port: int):
     result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_discovery(nvr.port)
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_discovery(port)
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
-    assert entry.data[CONF_URL] == nvr.url
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
     await hass.async_block_till_done()
+
+
+async def test_rediscovery_at_a_new_address_updates_the_entry(hass: HomeAssistant, nvr: FakeNVR) -> None:
+    old = f"http://127.0.0.1:{free_port()}"  # the NVR no longer answers there
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=INSTANCE_ID, data={CONF_URL: old, CONF_TOKEN: TOKEN})
+    entry.add_to_hass(hass)
+    await _rediscover(hass, entry, nvr.port)
+    assert entry.data[CONF_URL] == nvr.url
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_an_impostor_announcing_our_id_gets_no_token(hass: HomeAssistant, nvr: FakeNVR) -> None:
+    """Anyone can copy the public instance id; only the NVR that issued the token can answer the proof."""
+    impostor = FakeNVR()
+    impostor.token = "cnvr_something_else"
+    await impostor.start()
+    try:
+        entry = MockConfigEntry(
+            domain=DOMAIN, unique_id=INSTANCE_ID, data={CONF_URL: f"http://127.0.0.1:{free_port()}", CONF_TOKEN: TOKEN}
+        )
+        entry.add_to_hass(hass)
+        await _rediscover(hass, entry, impostor.port)
+        assert entry.data[CONF_URL] != impostor.url
+    finally:
+        await impostor.stop()
+
+
+async def test_announcement_ignored_while_the_old_address_still_answers(hass: HomeAssistant, nvr: FakeNVR) -> None:
+    other = FakeNVR()
+    await other.start()
+    try:
+        entry = MockConfigEntry(domain=DOMAIN, unique_id=INSTANCE_ID, data={CONF_URL: nvr.url, CONF_TOKEN: TOKEN})
+        entry.add_to_hass(hass)
+        await _rediscover(hass, entry, other.port)
+        assert entry.data[CONF_URL] == nvr.url
+        assert other.calls("POST", "/api/link/proof") == []
+    finally:
+        await other.stop()
 
 
 async def test_discovery_of_something_else_is_ignored(hass: HomeAssistant, nvr: FakeNVR) -> None:

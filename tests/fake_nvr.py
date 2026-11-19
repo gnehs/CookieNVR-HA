@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 import socket
 import time
@@ -142,6 +144,7 @@ class FakeNVR:
         r.add_get("/api/stream", self._stream)
         r.add_post("/api/link", self._link_create)
         r.add_post("/api/link/poll", self._link_poll)
+        r.add_post("/api/link/proof", self._link_proof)
         self._runner = web.AppRunner(app)
         await self._runner.setup()
         await web.TCPSite(self._runner, "127.0.0.1", self.port).start()
@@ -199,10 +202,19 @@ class FakeNVR:
                 "approveUrl": f"{self.url}/#/link/{code}",
                 "pollSecret": secret,
                 "expiresAt": int(time.time() * 1000) + self.link_ttl_ms,
+                "expiresIn": self.link_ttl_ms / 1000,
                 "interval": self.link_interval,
             },
             status=201,
         )
+
+    async def _link_proof(self, request: web.Request) -> web.Response:
+        body = await request.json()
+        key = hashlib.sha256(self.token.encode()).hexdigest()
+        if body.get("lookup") != hashlib.sha256(f"cnvr-proof-id:{key}".encode()).hexdigest():
+            return web.json_response({"error": "找不到這個連線"}, status=404)
+        message = f"{body['nonce']}|{self.info.get('instanceId')}".encode()
+        return web.json_response({"proof": hmac.new(key.encode(), message, hashlib.sha256).hexdigest()})
 
     async def _link_poll(self, request: web.Request) -> web.Response:
         body = await request.json()
