@@ -21,6 +21,13 @@ class NVRState:
     workers: dict[str, Json] = field(default_factory=dict)
     admin: bool = False
     username: str = ""
+    # camera id -> label -> {"event_id", "at"}: the latest event that carried each object class
+    label_seen: dict[str, dict[str, Json]] = field(default_factory=dict)
+
+
+def event_labels(event: Json | None) -> set[str]:
+    labels = (event or {}).get("labels") or []
+    return {label for label in labels if isinstance(label, str) and label}
 
 
 def camera_name(camera: Json) -> str:

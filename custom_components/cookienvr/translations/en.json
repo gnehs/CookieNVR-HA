@@ -68,7 +68,147 @@
         "name": "Online"
       },
       "object": {
-        "name": "{label}"
+        "name": "{label}",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_person": {
+        "name": "Person",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_car": {
+        "name": "Car",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_motorcycle": {
+        "name": "Motorcycle",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_bicycle": {
+        "name": "Bicycle",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_truck": {
+        "name": "Truck",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_bus": {
+        "name": "Bus",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_cat": {
+        "name": "Cat",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_dog": {
+        "name": "Dog",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_bird": {
+        "name": "Bird",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_vehicle": {
+        "name": "Vehicle",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_pet": {
+        "name": "Pet",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
+      },
+      "object_package": {
+        "name": "Package",
+        "state_attributes": {
+          "last_detected": {
+            "name": "Last detected"
+          },
+          "event_id": {
+            "name": "Event"
+          }
+        }
       }
     },
     "switch": {

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import CookieNVRConfigEntry, CookieNVRCoordinator
 from .entity import CookieNVRCameraEntity, async_setup_dynamic
-from .models import NVRState, object_labels
+from .labels import label_translation
+from .models import NVRState, event_labels, object_labels
 
 PARALLEL_UPDATES = 0
 
@@ -67,12 +70,17 @@ class ObjectSensor(CookieNVRCameraEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
 
     def __init__(self, coordinator: CookieNVRCoordinator, camera_id: str, label: str) -> None:
+        # unique_id is camera id + label, so renaming the camera or unticking and re-ticking the class keeps it
         super().__init__(coordinator, camera_id, f"label_{label}")
         self._label = label
-        self._attr_translation_key = "object"
-        self._attr_translation_placeholders = {"label": label}
+        self._attr_translation_key, self._attr_translation_placeholders = label_translation(label)
 
     @property
     def is_on(self) -> bool:
         events = self.coordinator.data.active.get(self.camera_id, {})
-        return any(self._label in (event.get("labels") or []) for event in events.values())
+        return any(self._label in event_labels(event) for event in events.values())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        seen = self.coordinator.data.label_seen.get(self.camera_id, {}).get(self._label)
+        return {"last_detected": seen["at"] if seen else None, "event_id": seen["event_id"] if seen else None}

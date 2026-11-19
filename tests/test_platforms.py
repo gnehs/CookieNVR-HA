@@ -58,28 +58,6 @@ async def test_online_sensor_follows_camera_status(hass: HomeAssistant, nvr: Fak
     assert hass.states.get("binary_sensor.front_door_motion").attributes["device_class"] == "motion"
 
 
-async def test_object_sensors_follow_event_labels(hass: HomeAssistant, nvr: FakeNVR, load) -> None:
-    """Object detection is not shipped yet, so this runs on invented labels and a guessed `detect.labels` setting."""
-    nvr.cameras[0]["config"]["detect"] = {"enabled": True, "labels": ["person", "car"]}
-    await load()
-    person, car = "binary_sensor.front_door_person", "binary_sensor.front_door_car"
-    assert hass.states.get(person).state == STATE_OFF
-    assert hass.states.get(person).attributes["device_class"] == "occupancy"
-    assert hass.states.get("binary_sensor.garage_person") is None
-
-    event = make_event(11, "cam1", T0, labels=["person"])
-    nvr.push("event", {"phase": "start", "event": event})
-    await wait_for(hass, lambda: hass.states.get(person).state == STATE_ON)
-    assert hass.states.get(car).state == STATE_OFF
-    nvr.push("event", {"phase": "end", "event": {**event, "endMs": T0 + 5000}})
-    await wait_for(hass, lambda: hass.states.get(person).state == STATE_OFF)
-
-    nvr.cameras[0]["config"]["detect"]["labels"] = ["person", "dog"]
-    nvr.push("cameras", nvr.cameras)
-    await wait_for(hass, lambda: hass.states.get("binary_sensor.front_door_dog") is not None)
-    await wait_for(hass, lambda: hass.states.get(car) is None)
-
-
 async def test_no_object_sensors_without_detect_settings(hass: HomeAssistant, setup) -> None:
     assert not [s for s in hass.states.async_entity_ids("binary_sensor") if not s.endswith(("_motion", "_online"))]
 

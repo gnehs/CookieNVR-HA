@@ -20,7 +20,7 @@ from .api import (
     CookieNVRConnectionError,
 )
 from .const import DOMAIN, EVENT_COOKIENVR, LOGGER, POLL_INTERVAL, SSE_BACKOFF_MAX, SSE_BACKOFF_MIN
-from .models import Json, NVRState, camera_name
+from .models import Json, NVRState, camera_name, event_labels
 
 type CookieNVRConfigEntry = ConfigEntry[CookieNVRCoordinator]
 
@@ -101,6 +101,8 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
         for camera_id, event in latest.items():
             if camera_id in state.cameras:
                 state.last_event[camera_id] = event
+        for event in events:
+            _note_labels(state, event, datetime.fromtimestamp(event["startMs"] / 1000, UTC), replace=False)
         self._reconcile_active(state, active, finished, silent=previous is None)
         await self._refresh_ptz(state)
         return state
@@ -149,8 +151,13 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
                 new_by_camera.setdefault(event["cameraId"], {})[event["id"]] = event
         old = {e["id"]: e for events in state.active.values() for e in events.values()}
         new = {i: e for events in new_by_camera.values() for i, e in events.items()}
+        now = datetime.now(UTC)
         for event_id, event in new.items():
-            if silent:
+            _note_labels(state, event, now)
+            if event_id in old:
+                # labels confirmed while the stream was down
+                self._fire("update", event, event_labels(event) - event_labels(old[event_id]))
+            elif silent:
                 self._fired[(event_id, "start")] = None
             else:
                 self._fire("start", event)
@@ -163,8 +170,15 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
                 self._fire("end", ended)
         state.active = new_by_camera
 
-    def _fire(self, phase: str, event: Json) -> None:
-        key = (event["id"], phase)
+    def _fire(self, phase: str, event: Json, new_labels: set[str] | None = None) -> None:
+        """Fire `cookienvr_event`. `update` fires only when object classes were added, once per set of labels."""
+        if phase == "update":
+            if not new_labels:
+                return
+            key = (event["id"], "update:" + ",".join(sorted(event_labels(event))))
+        else:
+            key = (event["id"], phase)
+            new_labels = event_labels(event) if phase == "start" else set()
         if key in self._fired:
             return
         self._fired[key] = None
@@ -183,9 +197,10 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
                 "camera_id": camera_id,
                 "device_id": device.id if device else None,
                 "event_id": event["id"],
-                "state": "start" if phase == "start" else "end",
+                "state": phase,
                 "score": event.get("score"),
                 "labels": list(event.get("labels") or []),
+                "new_labels": sorted(new_labels),
                 "thumbnail_url": (
                     self.client.token_url(f"/api/events/{event['id']}/thumb.jpg") if event.get("hasThumb") else None
                 ),
@@ -272,16 +287,24 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
         camera_id = event["cameraId"]
         if camera_id not in state.cameras:
             return
+        now = datetime.now(UTC)
         state.last_event[camera_id] = event
-        self.image_updated[camera_id] = datetime.now(UTC)
+        self.image_updated[camera_id] = now
+        _note_labels(state, event, now)
         events = state.active.setdefault(camera_id, {})
-        if phase == "start":
+        known = events.get(event["id"])
+        if phase == "update" and event.get("endMs") is not None:
+            phase = "end"
+        if phase == "update" and known is None:
+            # the start went by while we were away
+            phase = "start"
+        if phase in ("start", "update"):
             events[event["id"]] = event
         else:
             events.pop(event["id"], None)
-            if not events:
-                del state.active[camera_id]
-        self._fire(phase, event)
+        if not events:
+            del state.active[camera_id]
+        self._fire(phase, event, event_labels(event) - event_labels(known) if phase == "update" else None)
 
     # ---- device registry -----------------------------------------------
 
@@ -302,3 +325,13 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
                 registry.async_remove_device(device.id)
             elif device.name != wanted[ident]:
                 registry.async_update_device(device.id, name=wanted[ident])
+
+
+def _note_labels(state: NVRState, event: Json, at: datetime, *, replace: bool = True) -> None:
+    """Remember which event last carried each label, and when it was first seen in that event."""
+    seen = state.label_seen.setdefault(event["cameraId"], {})
+    for label in event_labels(event):
+        current = seen.get(label)
+        if current is not None and (current["event_id"] == event["id"] or not replace and current["at"] >= at):
+            continue
+        seen[label] = {"event_id": event["id"], "at": at}

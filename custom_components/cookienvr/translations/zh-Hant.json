@@ -68,7 +68,147 @@
         "name": "上線"
       },
       "object": {
-        "name": "{label}"
+        "name": "{label}",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_person": {
+        "name": "人",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_car": {
+        "name": "汽車",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_motorcycle": {
+        "name": "機車",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_bicycle": {
+        "name": "腳踏車",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_truck": {
+        "name": "卡車",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_bus": {
+        "name": "公車",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_cat": {
+        "name": "貓",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_dog": {
+        "name": "狗",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_bird": {
+        "name": "鳥",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_vehicle": {
+        "name": "車輛",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_pet": {
+        "name": "寵物",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
+      },
+      "object_package": {
+        "name": "包裹",
+        "state_attributes": {
+          "last_detected": {
+            "name": "上次偵測到"
+          },
+          "event_id": {
+            "name": "事件"
+          }
+        }
       }
     },
     "switch": {

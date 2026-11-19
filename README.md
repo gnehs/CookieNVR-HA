@@ -38,11 +38,34 @@ NVR 新增或刪除攝影機後，HA 自動同步，不需要重啟整合。
 | `camera.<名稱>` | 快照取自 NVR；串流來源為 NVR 的 RTSP 轉發（main） |
 | `binary_sensor.<名稱>_motion` | 動作與事件進行中 |
 | `binary_sensor.<名稱>_online` | 攝影機上線 |
-| `binary_sensor.<名稱>_<類別>` | 進行中的事件含該類別（物件辨識啟用後才有） |
+| `binary_sensor.<名稱>_<類別>` | 物件辨識勾選的每個類別一個（人、汽車、狗…），進行中的事件含該類別時開啟 |
 | `switch.<名稱>_recording`、`_detection` | 錄影與偵測開關（需管理員 Token） |
 | `select.<名稱>_ptz_preset`、`button.<名稱>_ptz_*` | PTZ 預置點與上下左右微調（有 PTZ 才有） |
 | `image.<名稱>_last_event`、`sensor.<名稱>_last_event` | 最近事件的縮圖與時間 |
 | NVR：磁碟容量、可用、用量、錄影總量、正常 worker 數 | 需管理員 Token |
+
+### 物件類別感應器
+
+在 CookieNVR 的攝影機設定勾選要辨識的類別後，每個類別會成為一個獨立的感應器，例如 `binary_sensor.前門_person`（顯示為「前門 人」）。勾選或取消後感應器會自動增減，不需要重新載入整合；同一台攝影機的同一個類別永遠是同一個實體，改名或取消後再勾回來，自動化都不會斷。
+
+- 類別在事件進行中被確認的當下就開啟，事件結束時關閉。斷線重連後依 NVR 的完整狀態校正。
+- 裝置類別是 occupancy（「偵測到／未偵測到」），和代表畫面變動的 motion 感應器區分開來。
+- 屬性：`last_detected`（最近一次偵測到的時間）、`event_id`（對應的事件）。
+- 常見類別有中英文名稱；自訂模型的類別顯示原始名稱（例如 `garbage_bin` 顯示為「Garbage bin」）。
+- 內建模型以 COCO 資料集訓練，沒有「包裹」類別；要偵測包裹得在 CookieNVR 換用自訂模型，類別出現後這裡就會有對應的感應器。
+
+```yaml
+automation:
+  - alias: 前門有人時推播
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.qian_men_person
+        to: "on"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          message: 前門有人
+```
 
 ### 服務
 
@@ -54,19 +77,22 @@ NVR 新增或刪除攝影機後，HA 自動同步，不需要重啟整合。
 
 ### 事件
 
-每筆事件開始與結束都會發出 `cookienvr_event`：
+每筆事件開始、結束，以及進行中確認了新的物件類別時，都會發出 `cookienvr_event`：
 
 ```yaml
 camera: 前門          # 攝影機名稱
 camera_id: abc123
 device_id: 0f1e...    # HA 裝置 ID
 event_id: 42
-state: start          # start 或 end
+state: update         # start、update（確認了新類別）或 end
 score: 0.42
-labels: []            # 物件類別，沒有物件辨識時為空
+labels: [person, car] # 目前為止確認的所有類別，沒有物件辨識時為空
+new_labels: [car]     # 這一次新確認的類別；start 時等於 labels，end 時為空
 thumbnail_url: http://nvr:8765/api/events/42/thumb.jpg?token=cnvr_...
 playback_url: http://nvr:8765/#/recordings?camera=abc123
 ```
+
+想做「有人才通知」時，觸發條件用 `new_labels` 含 `person`，不論類別是在事件開始時還是進行中才確認都只會觸發一次。
 
 `thumbnail_url` 帶著 Token 以便推播軟體直接抓圖；不要把這個網址貼到公開的地方。
 
@@ -110,7 +136,7 @@ Cameras added or removed on the NVR appear or disappear in Home Assistant withou
 
 ### Entities, services and events
 
-Each camera is a device, and the NVR is a device of its own. Entities are listed in the table above. Services `cookienvr.ptz_move`, `cookienvr.ptz_preset` and `cookienvr.export_clip` target the integration's camera entities. Every event start and end fires `cookienvr_event` with `camera`, `camera_id`, `device_id`, `event_id`, `state`, `score`, `labels`, `thumbnail_url` and `playback_url`. The thumbnail URL carries the API token, so keep it private.
+Each camera is a device, and the NVR is a device of its own. Entities are listed in the table above. Services `cookienvr.ptz_move`, `cookienvr.ptz_preset` and `cookienvr.export_clip` target the integration's camera entities. Every object class ticked in CookieNVR becomes its own occupancy binary sensor that turns on as soon as an event in progress confirms the class and off when the event ends; sensors follow the ticked classes without a reload, keep their entity across renames and re-ticking, and carry `last_detected` and `event_id`. The bundled model is trained on COCO, which has no package class, so package sensors need a custom model. Every event start, every newly confirmed class (`state: update`) and every end fires `cookienvr_event` with `camera`, `camera_id`, `device_id`, `event_id`, `state`, `score`, `labels`, `new_labels`, `thumbnail_url` and `playback_url`; trigger on `new_labels` containing `person` to be told once per event. The thumbnail URL carries the API token, so keep it private.
 
 ### Reliability
 
