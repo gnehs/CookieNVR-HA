@@ -35,7 +35,7 @@
       }
     },
     "progress": {
-      "wait_for_approval": "1. [開啟 CookieNVR]({url})，需要的話先登入。\n2. 確認畫面上的代碼是 **{code}**。\n3. 按「**允許**」，這裡會自動繼續。\n\n代碼 10 分鐘內有效。"
+      "wait_for_approval": "[開啟 CookieNVR]({url})（需要的話先登入），確認畫面上的代碼和這裡一樣：\n\n## {code}\n\n按「**允許**」後這裡會自動繼續。代碼 10 分鐘內有效。"
     },
     "error": {
       "cannot_connect": "無法連線到 CookieNVR",

@@ -35,7 +35,7 @@
       }
     },
     "progress": {
-      "wait_for_approval": "1. [Open CookieNVR]({url}) and sign in if asked.\n2. Check that it shows the code **{code}**.\n3. Select **Allow**. This page continues by itself.\n\nThe code is valid for 10 minutes."
+      "wait_for_approval": "[Open CookieNVR]({url}) (sign in if asked) and check that it shows this code:\n\n## {code}\n\nSelect **Allow** and this page continues by itself. The code is valid for 10 minutes."
     },
     "error": {
       "cannot_connect": "Cannot connect to CookieNVR",
