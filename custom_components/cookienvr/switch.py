@@ -36,7 +36,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: CookieNVRConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
     async_setup_dynamic(
-        hass, entry, async_add_entities, _wanted, lambda coordinator, key: ConfigSwitch(coordinator, *key)
+        hass, entry, async_add_entities, (_wanted, lambda coordinator, key: ConfigSwitch(coordinator, *key))
     )
 
 

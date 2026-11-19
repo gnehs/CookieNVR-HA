@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from datetime import timedelta
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
@@ -60,7 +61,7 @@ async def test_camera_status_message_updates_online(hass: HomeAssistant, nvr: Fa
 
 
 async def test_camera_added_and_removed_without_reload(
-    hass: HomeAssistant, nvr: FakeNVR, setup: MockConfigEntry
+    hass: HomeAssistant, nvr: FakeNVR, setup: MockConfigEntry, caplog: pytest.LogCaptureFixture
 ) -> None:
     await _connected(hass, nvr)
     ent = er.async_get(hass)
@@ -78,6 +79,7 @@ async def test_camera_added_and_removed_without_reload(
     await wait_for(hass, lambda: hass.states.get("camera.garage") is None)
     assert get_device(hass, setup, "cam2") is None
     assert not [e for e in ent.entities.values() if e.unique_id.startswith(f"{setup.entry_id}_cam2_")]
+    assert "deprecated" not in caplog.text and "will stop working" not in caplog.text
 
 
 async def test_camera_rename_follows(hass: HomeAssistant, nvr: FakeNVR, setup: MockConfigEntry) -> None:

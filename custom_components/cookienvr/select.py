@@ -21,8 +21,10 @@ async def async_setup_entry(
         hass,
         entry,
         async_add_entities,
-        lambda state: camera_keys(state, lambda cid, _: ptz_supported(state, cid)),
-        lambda coordinator, camera_id: PresetSelect(coordinator, camera_id),
+        (
+            lambda state: camera_keys(state, lambda cid, _: ptz_supported(state, cid)),
+            lambda coordinator, camera_id: PresetSelect(coordinator, camera_id),
+        ),
     )
 
 

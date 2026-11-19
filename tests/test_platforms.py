@@ -243,3 +243,14 @@ async def test_removing_the_entry_clears_nothing_stale(hass: HomeAssistant, setu
     ent = er.async_get(hass)
     assert any(e.platform == DOMAIN for e in ent.entities.values())
     assert hass.states.get("camera.front_door").state != STATE_UNAVAILABLE
+
+
+async def test_entities_of_a_downgraded_token_do_not_linger(hass: HomeAssistant, nvr: FakeNVR, setup) -> None:
+    ent = er.async_get(hass)
+    assert ent.async_get("switch.front_door_recording") and ent.async_get("sensor.home_nvr_disk_free")
+    nvr.role = "user"
+    await hass.config_entries.async_reload(setup.entry_id)
+    await hass.async_block_till_done()
+    assert ent.async_get("switch.front_door_recording") is None
+    assert ent.async_get("sensor.home_nvr_disk_free") is None
+    assert hass.states.get("switch.front_door_recording") is None

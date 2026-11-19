@@ -299,6 +299,6 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
             if ident is None:
                 continue
             if ident not in wanted:
-                registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+                registry.async_remove_device(device.id)
             elif device.name != wanted[ident]:
                 registry.async_update_device(device.id, name=wanted[ident])

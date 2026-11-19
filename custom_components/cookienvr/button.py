@@ -30,7 +30,9 @@ def _wanted(state: NVRState) -> set[tuple[str, str]]:
 async def async_setup_entry(
     hass: HomeAssistant, entry: CookieNVRConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
-    async_setup_dynamic(hass, entry, async_add_entities, _wanted, lambda coordinator, key: PtzButton(coordinator, *key))
+    async_setup_dynamic(
+        hass, entry, async_add_entities, (_wanted, lambda coordinator, key: PtzButton(coordinator, *key))
+    )
 
 
 class PtzButton(CookieNVRCameraEntity, ButtonEntity):

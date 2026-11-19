@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_platform
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
@@ -75,30 +76,47 @@ class CookieNVRCameraEntity(CoordinatorEntity[CookieNVRCoordinator]):
         return super().available and self.camera is not None
 
 
+type Group = tuple[Callable[[NVRState], set[Any]], Callable[[CookieNVRCoordinator, Any], Entity]]
+
+
 @callback
-def async_setup_dynamic[K: Hashable](
+def async_setup_dynamic(
     hass: HomeAssistant,
     entry: CookieNVRConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
-    wanted: Callable[[NVRState], set[K]],
-    make: Callable[[CookieNVRCoordinator, K], Entity],
+    *groups: Group,
 ) -> None:
-    """Add an entity for every wanted key as it appears and remove it when it goes away."""
+    """Add an entity for every wanted key as it appears and remove it when it goes away.
+
+    Each group is a `(wanted, make)` pair. On the first pass, registry entries of this platform that no
+    group wants any more (a token that lost admin rights, a label that was dropped) are removed too.
+    """
     coordinator = entry.runtime_data
-    known: dict[K, Entity] = {}
+    known: list[dict[Hashable, Entity]] = [{} for _ in groups]
+    registry = er.async_get(hass)
+    platform = entity_platform.async_get_current_platform()
+    first = True
 
     @callback
     def sync() -> None:
-        keys = wanted(coordinator.data)
-        fresh = [key for key in sorted(keys - known.keys(), key=repr)]
-        if fresh:
-            entities = [make(coordinator, key) for key in fresh]
-            known.update(zip(fresh, entities, strict=True))
-            async_add_entities(entities)
-        for key in known.keys() - keys:
-            entity = known.pop(key)
-            if entity.entity_id:
-                er.async_get(hass).async_remove(entity.entity_id)
+        nonlocal first
+        for (wanted, make), group_known in zip(groups, known, strict=True):
+            keys = wanted(coordinator.data)
+            fresh = sorted(keys - group_known.keys(), key=repr)
+            if fresh:
+                entities = [make(coordinator, key) for key in fresh]
+                group_known.update(zip(fresh, entities, strict=True))
+                async_add_entities(entities)
+            for key in group_known.keys() - keys:
+                entity = group_known.pop(key)
+                if entity.entity_id:
+                    registry.async_remove(entity.entity_id)
+        if first:
+            first = False
+            live = {e.unique_id for group_known in known for e in group_known.values()}
+            for stale in er.async_entries_for_config_entry(registry, entry.entry_id):
+                if stale.domain == platform.domain and stale.unique_id not in live:
+                    registry.async_remove(stale.entity_id)
 
     entry.async_on_unload(coordinator.async_add_listener(sync))
     sync()

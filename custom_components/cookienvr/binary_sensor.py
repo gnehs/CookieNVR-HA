@@ -34,7 +34,7 @@ def _make(coordinator: CookieNVRCoordinator, key: tuple[str, str, str]) -> Binar
 async def async_setup_entry(
     hass: HomeAssistant, entry: CookieNVRConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
-    async_setup_dynamic(hass, entry, async_add_entities, _wanted, _make)
+    async_setup_dynamic(hass, entry, async_add_entities, (_wanted, _make))
 
 
 class MotionSensor(CookieNVRCameraEntity, BinarySensorEntity):

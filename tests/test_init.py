@@ -66,3 +66,15 @@ async def test_old_integration_raises_repair_issue_and_clears_it(
     assert entry.state is ConfigEntryState.LOADED
     assert registry.async_get_issue(DOMAIN, f"integration_outdated_{entry.entry_id}") is None
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_removing_entry_clears_its_repair_issues(
+    hass: HomeAssistant, nvr: FakeNVR, entry: MockConfigEntry
+) -> None:
+    nvr.info["apiVersion"] = 0
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, f"nvr_outdated_{entry.entry_id}")
+    await hass.config_entries.async_remove(entry.entry_id)
+    assert registry.async_get_issue(DOMAIN, f"nvr_outdated_{entry.entry_id}") is None

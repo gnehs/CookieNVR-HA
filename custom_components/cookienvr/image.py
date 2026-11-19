@@ -22,8 +22,7 @@ async def async_setup_entry(
         hass,
         entry,
         async_add_entities,
-        camera_keys,
-        lambda coordinator, camera_id: LastEventImage(coordinator, camera_id),
+        (camera_keys, lambda coordinator, camera_id: LastEventImage(coordinator, camera_id)),
     )
 
 

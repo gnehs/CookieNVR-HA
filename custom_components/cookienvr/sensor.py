@@ -100,15 +100,8 @@ async def async_setup_entry(
         hass,
         entry,
         async_add_entities,
-        camera_keys,
-        lambda coordinator, camera_id: LastEventSensor(coordinator, camera_id),
-    )
-    async_setup_dynamic(
-        hass,
-        entry,
-        async_add_entities,
-        _nvr_wanted,
-        lambda coordinator, key: NvrSensor(coordinator, SENSORS_BY_KEY[key]),
+        (camera_keys, lambda coordinator, camera_id: LastEventSensor(coordinator, camera_id)),
+        (_nvr_wanted, lambda coordinator, key: NvrSensor(coordinator, SENSORS_BY_KEY[key])),
     )
 
 
