@@ -4,35 +4,59 @@
     "step": {
       "user": {
         "title": "Connect to CookieNVR",
-        "description": "Create an API token in CookieNVR (Account, Connect other apps). A token from an administrator account also enables the recording and detection switches.",
+        "description": "Enter the address of your CookieNVR. Next you approve the connection in CookieNVR, no token to copy.",
         "data": {
           "url": "CookieNVR address",
-          "token": "API token",
-          "verify_ssl": "Verify SSL certificate"
+          "verify_ssl": "Verify SSL certificate",
+          "token": "API token (advanced)"
         },
         "data_description": {
           "url": "For example http://192.168.1.10:8765",
-          "token": "Starts with cnvr_"
+          "token": "Leave empty. Only needed if you cannot open the CookieNVR approval page; create one under Account, Connect other apps."
         }
       },
+      "zeroconf_confirm": {
+        "title": "Add {name}?",
+        "description": "Found CookieNVR **{name}** at {url}. Next you approve the connection in CookieNVR."
+      },
+      "link_retry": {
+        "title": "Connection not approved",
+        "description": "Select Submit to get a new code and try again."
+      },
       "reauth_confirm": {
-        "title": "Re-authenticate CookieNVR",
-        "description": "The token for {url} was rejected. Enter a new API token.",
+        "title": "Reconnect {name}",
+        "description": "CookieNVR no longer accepts this connection (it may have been revoked). Select Submit, then approve it again in CookieNVR.",
         "data": {
-          "token": "API token"
+          "token": "API token (advanced)"
+        },
+        "data_description": {
+          "token": "Leave empty to approve in CookieNVR instead."
         }
       }
+    },
+    "progress": {
+      "wait_for_approval": "1. [Open CookieNVR]({url}) and sign in if asked.\n2. Check that it shows the code **{code}**.\n3. Select **Allow**. This page continues by itself.\n\nThe code is valid for 10 minutes."
     },
     "error": {
       "cannot_connect": "Cannot connect to CookieNVR",
       "invalid_auth": "The API token was rejected",
       "invalid_url": "Enter a valid http:// or https:// address",
       "nvr_outdated": "Please update CookieNVR",
-      "integration_outdated": "Please update the CookieNVR integration"
+      "integration_outdated": "Please update the CookieNVR integration",
+      "link_denied": "The connection was denied in CookieNVR",
+      "link_expired": "The code expired before it was approved",
+      "link_claimed": "This code was already used by someone else. Try again to get a new one."
     },
     "abort": {
       "already_configured": "This CookieNVR is already added",
-      "reauth_successful": "Re-authentication successful"
+      "reauth_successful": "Re-authentication successful",
+      "unique_id_mismatch": "This address now belongs to a different CookieNVR",
+      "cannot_connect": "Cannot connect to CookieNVR",
+      "invalid_url": "Enter a valid http:// or https:// address",
+      "nvr_outdated": "Please update CookieNVR",
+      "integration_outdated": "Please update the CookieNVR integration",
+      "not_cookienvr": "This device is not a CookieNVR",
+      "link_rate_limited": "CookieNVR is receiving too many connection requests. Try again in a few minutes."
     }
   },
   "entity": {

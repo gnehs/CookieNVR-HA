@@ -4,35 +4,59 @@
     "step": {
       "user": {
         "title": "連接 CookieNVR",
-        "description": "請先在 CookieNVR 的「帳號 → 連接其他 App」建立 API Token。用管理員帳號建的 Token 才能在 HA 切換錄影與偵測開關。",
+        "description": "輸入 CookieNVR 的網址，下一步到 CookieNVR 按「允許」就完成，不用複製任何密鑰。",
         "data": {
           "url": "CookieNVR 網址",
-          "token": "API Token",
-          "verify_ssl": "驗證 SSL 憑證"
+          "verify_ssl": "驗證 SSL 憑證",
+          "token": "API Token（進階）"
         },
         "data_description": {
           "url": "例如 http://192.168.1.10:8765",
-          "token": "以 cnvr_ 開頭"
+          "token": "留空即可。只有在打不開 CookieNVR 核准頁時才需要，可在「帳號 → 連接其他 App」建立。"
         }
       },
+      "zeroconf_confirm": {
+        "title": "加入 {name}？",
+        "description": "在 {url} 找到 CookieNVR **{name}**。下一步到 CookieNVR 按「允許」就完成。"
+      },
+      "link_retry": {
+        "title": "連線沒有被允許",
+        "description": "按「送出」拿一組新的代碼再試一次。"
+      },
       "reauth_confirm": {
-        "title": "重新驗證 CookieNVR",
-        "description": "{url} 的 Token 已失效，請輸入新的 API Token。",
+        "title": "重新連接 {name}",
+        "description": "CookieNVR 不再接受這個連線（可能被撤銷了）。按「送出」後，到 CookieNVR 再按一次「允許」。",
         "data": {
-          "token": "API Token"
+          "token": "API Token（進階）"
+        },
+        "data_description": {
+          "token": "留空，改到 CookieNVR 核准。"
         }
       }
+    },
+    "progress": {
+      "wait_for_approval": "1. [開啟 CookieNVR]({url})，需要的話先登入。\n2. 確認畫面上的代碼是 **{code}**。\n3. 按「**允許**」，這裡會自動繼續。\n\n代碼 10 分鐘內有效。"
     },
     "error": {
       "cannot_connect": "無法連線到 CookieNVR",
       "invalid_auth": "API Token 無效",
       "invalid_url": "請輸入有效的 http:// 或 https:// 網址",
       "nvr_outdated": "請更新 CookieNVR",
-      "integration_outdated": "請更新整合"
+      "integration_outdated": "請更新整合",
+      "link_denied": "在 CookieNVR 上被拒絕了",
+      "link_expired": "代碼在允許之前就過期了",
+      "link_claimed": "這組代碼已經被用掉了，請再試一次拿新的代碼"
     },
     "abort": {
       "already_configured": "這台 CookieNVR 已經加入過了",
-      "reauth_successful": "重新驗證成功"
+      "reauth_successful": "重新連接成功",
+      "unique_id_mismatch": "這個網址現在是另一台 CookieNVR",
+      "cannot_connect": "無法連線到 CookieNVR",
+      "invalid_url": "請輸入有效的 http:// 或 https:// 網址",
+      "nvr_outdated": "請更新 CookieNVR",
+      "integration_outdated": "請更新整合",
+      "not_cookienvr": "這台裝置不是 CookieNVR",
+      "link_rate_limited": "CookieNVR 收到太多連線請求，請過幾分鐘再試"
     }
   },
   "entity": {

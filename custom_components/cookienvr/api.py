@@ -113,6 +113,13 @@ class CookieNVRClient:
     async def info(self) -> Json:
         return await self._request("GET", "/api/info", auth=False)
 
+    async def create_link(self, app: str) -> Json:
+        """Ask the NVR for a pending link request: a short code for the user, a poll secret for us."""
+        return await self._request("POST", "/api/link", body={"app": app}, auth=False)
+
+    async def poll_link(self, poll_secret: str) -> Json:
+        return await self._request("POST", "/api/link/poll", body={"pollSecret": poll_secret}, auth=False)
+
     async def me(self) -> Json:
         return await self._request("GET", "/api/me")
 

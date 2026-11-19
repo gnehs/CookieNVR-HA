@@ -65,6 +65,16 @@ def _check_api_version(hass: HomeAssistant, entry: ConfigEntry, info: dict) -> s
     return problem
 
 
+def _adopt_instance_id(hass: HomeAssistant, entry: ConfigEntry, info: dict) -> None:
+    """Key entries made before CookieNVR had instance ids by the id, so discovery can update their address."""
+    instance_id = info.get("instanceId")
+    if not isinstance(instance_id, str) or not instance_id or entry.unique_id == instance_id:
+        return
+    if hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, instance_id) is not None:
+        return
+    hass.config_entries.async_update_entry(entry, unique_id=instance_id)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: CookieNVRConfigEntry) -> bool:
     client = CookieNVRClient(
         async_get_clientsession(hass, verify_ssl=entry.data.get(CONF_VERIFY_SSL, True)),
@@ -79,6 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CookieNVRConfigEntry) ->
     except (CookieNVRConnectionError, CookieNVRApiError) as err:
         raise ConfigEntryNotReady(f"Cannot reach CookieNVR: {err}") from err
 
+    _adopt_instance_id(hass, entry, info)
     if _check_api_version(hass, entry, info):
         raise ConfigEntryError(translation_domain=DOMAIN, translation_key="incompatible_version")
 

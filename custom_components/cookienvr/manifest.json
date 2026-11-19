@@ -1,12 +1,17 @@
 {
   "domain": "cookienvr",
   "name": "CookieNVR",
-  "codeowners": ["@gnehs"],
+  "codeowners": [
+    "@gnehs"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/gnehs/CookieNVR-HA",
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/gnehs/CookieNVR-HA/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "zeroconf": [
+    "_cookienvr._tcp.local."
+  ]
 }

@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
+import time
 from copy import deepcopy
 from typing import Any
 
 from aiohttp import web
 
 TOKEN = "cnvr_testtoken"
+INSTANCE_ID = "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b"
 JPEG = b"\xff\xd8\xff\xe0fake-jpeg\xff\xd9"
 THUMB = b"\xff\xd8\xff\xe0fake-thumb\xff\xd9"
 MP4 = b"\x00\x00\x00\x18ftypmp42fake-clip-bytes"
@@ -68,7 +70,13 @@ def free_port() -> int:
 class FakeNVR:
     def __init__(self) -> None:
         self.port = free_port()
-        self.info: dict[str, Any] = {"version": "1.2.3", "apiVersion": 1, "needsSetup": False, "siteName": "Home NVR"}
+        self.info: dict[str, Any] = {
+            "version": "1.2.3",
+            "apiVersion": 1,
+            "needsSetup": False,
+            "siteName": "Home NVR",
+            "instanceId": INSTANCE_ID,
+        }
         self.token = TOKEN
         self.role = "admin"
         self.username = "alice"
@@ -98,6 +106,13 @@ class FakeNVR:
         self.stream_status = 200
         self._streams: list[asyncio.Queue[bytes | None]] = []
         self._runner: web.AppRunner | None = None
+        # Link requests: code -> {"secret", "status", "expiresAt"}; status follows the NVR's state machine.
+        self.links: dict[str, dict[str, Any]] = {}
+        self.link_interval = 0.1
+        self.link_ttl_ms = 600_000
+        self.link_create_status = 201
+        self.link_token = "cnvr_linkedtoken"
+        self.polls = 0
 
     @property
     def url(self) -> str:
@@ -125,6 +140,8 @@ class FakeNVR:
         r.add_get("/api/exports/{id}/file", self._export_file)
         r.add_delete("/api/exports/{id}", self._export_delete)
         r.add_get("/api/stream", self._stream)
+        r.add_post("/api/link", self._link_create)
+        r.add_post("/api/link/poll", self._link_poll)
         self._runner = web.AppRunner(app)
         await self._runner.setup()
         await web.TCPSite(self._runner, "127.0.0.1", self.port).start()
@@ -161,7 +178,45 @@ class FakeNVR:
     def calls(self, method: str, suffix: str) -> list[Any]:
         return [body for m, path, body in self.requests if m == method and path.endswith(suffix)]
 
+    def decide_link(self, status: str, code: str | None = None) -> None:
+        """Act as the person in the CookieNVR approval page: `approved`, `denied` or `expired`."""
+        link = self.links[code] if code else next(reversed(self.links.values()))
+        assert link["status"] == "pending"
+        link["status"] = status
+
     # ---- handlers ------------------------------------------------------
+
+    async def _link_create(self, request: web.Request) -> web.Response:
+        body = await self._record(request)
+        if self.link_create_status != 201:
+            return web.json_response({"error": "too many"}, status=self.link_create_status)
+        code = f"BCDF-{len(self.links):04d}".replace("0", "G")
+        secret = f"secret-{len(self.links)}"
+        self.links[code] = {"secret": secret, "status": "pending", "app": body["app"]}
+        return web.json_response(
+            {
+                "code": code,
+                "approveUrl": f"{self.url}/#/link/{code}",
+                "pollSecret": secret,
+                "expiresAt": int(time.time() * 1000) + self.link_ttl_ms,
+                "interval": self.link_interval,
+            },
+            status=201,
+        )
+
+    async def _link_poll(self, request: web.Request) -> web.Response:
+        body = await request.json()
+        self.polls += 1
+        link = next((x for x in self.links.values() if x["secret"] == body.get("pollSecret")), None)
+        if link is None:
+            return web.json_response({"error": "找不到這個連結請求"}, status=404)
+        if link["status"] == "approved":
+            link["status"] = "claimed"
+            self.token = self.link_token
+            return web.json_response(
+                {"status": "approved", "token": self.link_token, "username": self.username, "role": self.role}
+            )
+        return web.json_response({"status": link["status"]})
 
     def _auth(self, request: web.Request) -> None:
         header = request.headers.get("Authorization", "")
