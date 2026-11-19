@@ -1,0 +1,244 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "連接 CookieNVR",
+        "description": "請先在 CookieNVR 的「帳號 → 連接其他 App」建立 API Token。用管理員帳號建的 Token 才能在 HA 切換錄影與偵測開關。",
+        "data": {
+          "url": "CookieNVR 網址",
+          "token": "API Token",
+          "verify_ssl": "驗證 SSL 憑證"
+        },
+        "data_description": {
+          "url": "例如 http://192.168.1.10:8765",
+          "token": "以 cnvr_ 開頭"
+        }
+      },
+      "reauth_confirm": {
+        "title": "重新驗證 CookieNVR",
+        "description": "{url} 的 Token 已失效，請輸入新的 API Token。",
+        "data": {
+          "token": "API Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "無法連線到 CookieNVR",
+      "invalid_auth": "API Token 無效",
+      "invalid_url": "請輸入有效的 http:// 或 https:// 網址",
+      "nvr_outdated": "請更新 CookieNVR",
+      "integration_outdated": "請更新整合"
+    },
+    "abort": {
+      "already_configured": "這台 CookieNVR 已經加入過了",
+      "reauth_successful": "重新驗證成功"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": {
+        "name": "動作"
+      },
+      "online": {
+        "name": "上線"
+      },
+      "object": {
+        "name": "{label}"
+      }
+    },
+    "switch": {
+      "recording": {
+        "name": "錄影"
+      },
+      "detection": {
+        "name": "偵測"
+      }
+    },
+    "select": {
+      "ptz_preset": {
+        "name": "PTZ 預置點"
+      }
+    },
+    "button": {
+      "ptz_up": {
+        "name": "PTZ 上"
+      },
+      "ptz_down": {
+        "name": "PTZ 下"
+      },
+      "ptz_left": {
+        "name": "PTZ 左"
+      },
+      "ptz_right": {
+        "name": "PTZ 右"
+      }
+    },
+    "image": {
+      "last_event": {
+        "name": "最近事件"
+      }
+    },
+    "sensor": {
+      "last_event": {
+        "name": "最近事件"
+      },
+      "disk_total": {
+        "name": "磁碟容量"
+      },
+      "disk_free": {
+        "name": "磁碟可用"
+      },
+      "disk_used_percent": {
+        "name": "磁碟用量"
+      },
+      "recordings_size": {
+        "name": "錄影總量"
+      },
+      "workers_healthy": {
+        "name": "正常 worker 數"
+      }
+    }
+  },
+  "selector": {
+    "ptz_mode": {
+      "options": {
+        "continuous": "持續移動",
+        "relative": "相對移動"
+      }
+    },
+    "ptz_preset_action": {
+      "options": {
+        "goto": "前往預置點",
+        "save": "儲存預置點",
+        "delete": "刪除預置點"
+      }
+    }
+  },
+  "services": {
+    "ptz_move": {
+      "name": "PTZ 移動",
+      "description": "移動攝影機的水平、垂直或變焦。",
+      "fields": {
+        "pan": {
+          "name": "水平",
+          "description": "-1（左）到 1（右）。"
+        },
+        "tilt": {
+          "name": "垂直",
+          "description": "-1（下）到 1（上）。"
+        },
+        "zoom": {
+          "name": "變焦",
+          "description": "-1（拉遠）到 1（拉近）。"
+        },
+        "mode": {
+          "name": "模式",
+          "description": "相機支援時預設為相對移動。"
+        },
+        "duration": {
+          "name": "持續時間",
+          "description": "持續移動的秒數。"
+        },
+        "speed": {
+          "name": "速度",
+          "description": "0.1 到 1。"
+        }
+      }
+    },
+    "ptz_preset": {
+      "name": "PTZ 預置點",
+      "description": "前往、儲存或刪除預置點。儲存與刪除需要管理員 Token。",
+      "fields": {
+        "action": {
+          "name": "動作",
+          "description": "要對預置點做什麼。"
+        },
+        "preset": {
+          "name": "預置點",
+          "description": "預置點名稱或 token。儲存時為要覆寫的既有預置點。"
+        },
+        "name": {
+          "name": "名稱",
+          "description": "要儲存的預置點名稱。"
+        }
+      }
+    },
+    "export_clip": {
+      "name": "匯出影片",
+      "description": "把一段錄影匯出到 Home Assistant 的 media 目錄。",
+      "fields": {
+        "start": {
+          "name": "開始",
+          "description": "影片起點。"
+        },
+        "end": {
+          "name": "結束",
+          "description": "影片終點。end 與 duration 擇一。"
+        },
+        "duration": {
+          "name": "長度",
+          "description": "影片秒數。end 與 duration 擇一。"
+        },
+        "filename": {
+          "name": "檔名",
+          "description": "預設用 CookieNVR 決定的檔名。"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "incompatible_version": {
+      "message": "不支援這個 CookieNVR 的 API 版本，請看修復提示。"
+    },
+    "api_error": {
+      "message": "CookieNVR 回報錯誤：{error}"
+    },
+    "ptz_not_supported": {
+      "message": "{camera} 沒有 PTZ 控制"
+    },
+    "ptz_no_direction": {
+      "message": "請至少指定水平、垂直或變焦其中一項"
+    },
+    "ptz_no_zoom": {
+      "message": "{camera} 不支援變焦"
+    },
+    "ptz_mode_unsupported": {
+      "message": "這台攝影機不支援 {mode} 移動"
+    },
+    "preset_not_found": {
+      "message": "找不到預置點 {preset}"
+    },
+    "preset_required": {
+      "message": "請選擇預置點"
+    },
+    "preset_name_required": {
+      "message": "請輸入預置點名稱"
+    },
+    "admin_required": {
+      "message": "需要 CookieNVR 管理員的 Token"
+    },
+    "no_media_dir": {
+      "message": "Home Assistant 沒有設定 media 目錄"
+    },
+    "export_bad_range": {
+      "message": "結束時間必須晚於開始時間"
+    },
+    "export_end_or_duration": {
+      "message": "end 與 duration 必須擇一指定"
+    },
+    "export_failed": {
+      "message": "匯出失敗：{error}"
+    }
+  },
+  "issues": {
+    "nvr_outdated": {
+      "title": "請更新 CookieNVR",
+      "description": "CookieNVR {nvr_version} 的 API 版本是 {api_version}，這個整合需要 {min} 到 {max}。請更新 CookieNVR。"
+    },
+    "integration_outdated": {
+      "title": "請更新 CookieNVR 整合",
+      "description": "CookieNVR {nvr_version} 的 API 版本是 {api_version}，比這個整合支援的（{min} 到 {max}）新。請更新 CookieNVR 整合。"
+    }
+  }
+}

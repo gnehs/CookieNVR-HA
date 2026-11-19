@@ -1,0 +1,101 @@
+ptz_move:
+  target:
+    entity:
+      integration: cookienvr
+      domain: camera
+  fields:
+    pan:
+      default: 0
+      selector:
+        number:
+          min: -1
+          max: 1
+          step: 0.1
+          mode: slider
+    tilt:
+      default: 0
+      selector:
+        number:
+          min: -1
+          max: 1
+          step: 0.1
+          mode: slider
+    zoom:
+      default: 0
+      selector:
+        number:
+          min: -1
+          max: 1
+          step: 0.1
+          mode: slider
+    mode:
+      selector:
+        select:
+          translation_key: ptz_mode
+          options:
+            - continuous
+            - relative
+    duration:
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+          unit_of_measurement: s
+    speed:
+      selector:
+        number:
+          min: 0.1
+          max: 1
+          step: 0.1
+          mode: slider
+
+ptz_preset:
+  target:
+    entity:
+      integration: cookienvr
+      domain: camera
+  fields:
+    action:
+      required: true
+      example: goto
+      selector:
+        select:
+          translation_key: ptz_preset_action
+          options:
+            - goto
+            - save
+            - delete
+    preset:
+      example: Door
+      selector:
+        text:
+    name:
+      example: Door
+      selector:
+        text:
+
+export_clip:
+  target:
+    entity:
+      integration: cookienvr
+      domain: camera
+  fields:
+    start:
+      required: true
+      selector:
+        datetime:
+    end:
+      selector:
+        datetime:
+    duration:
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 7200
+          unit_of_measurement: s
+    filename:
+      example: front-door.mp4
+      selector:
+        text:

@@ -1,0 +1,244 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Connect to CookieNVR",
+        "description": "Create an API token in CookieNVR (Account, Connect other apps). A token from an administrator account also enables the recording and detection switches.",
+        "data": {
+          "url": "CookieNVR address",
+          "token": "API token",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "url": "For example http://192.168.1.10:8765",
+          "token": "Starts with cnvr_"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate CookieNVR",
+        "description": "The token for {url} was rejected. Enter a new API token.",
+        "data": {
+          "token": "API token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to CookieNVR",
+      "invalid_auth": "The API token was rejected",
+      "invalid_url": "Enter a valid http:// or https:// address",
+      "nvr_outdated": "Please update CookieNVR",
+      "integration_outdated": "Please update the CookieNVR integration"
+    },
+    "abort": {
+      "already_configured": "This CookieNVR is already added",
+      "reauth_successful": "Re-authentication successful"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": {
+        "name": "Motion"
+      },
+      "online": {
+        "name": "Online"
+      },
+      "object": {
+        "name": "{label}"
+      }
+    },
+    "switch": {
+      "recording": {
+        "name": "Recording"
+      },
+      "detection": {
+        "name": "Detection"
+      }
+    },
+    "select": {
+      "ptz_preset": {
+        "name": "PTZ preset"
+      }
+    },
+    "button": {
+      "ptz_up": {
+        "name": "PTZ up"
+      },
+      "ptz_down": {
+        "name": "PTZ down"
+      },
+      "ptz_left": {
+        "name": "PTZ left"
+      },
+      "ptz_right": {
+        "name": "PTZ right"
+      }
+    },
+    "image": {
+      "last_event": {
+        "name": "Last event"
+      }
+    },
+    "sensor": {
+      "last_event": {
+        "name": "Last event"
+      },
+      "disk_total": {
+        "name": "Disk size"
+      },
+      "disk_free": {
+        "name": "Disk free"
+      },
+      "disk_used_percent": {
+        "name": "Disk used"
+      },
+      "recordings_size": {
+        "name": "Recordings size"
+      },
+      "workers_healthy": {
+        "name": "Healthy workers"
+      }
+    }
+  },
+  "selector": {
+    "ptz_mode": {
+      "options": {
+        "continuous": "Continuous",
+        "relative": "Relative"
+      }
+    },
+    "ptz_preset_action": {
+      "options": {
+        "goto": "Go to preset",
+        "save": "Save preset",
+        "delete": "Delete preset"
+      }
+    }
+  },
+  "services": {
+    "ptz_move": {
+      "name": "PTZ move",
+      "description": "Moves a camera's pan, tilt or zoom.",
+      "fields": {
+        "pan": {
+          "name": "Pan",
+          "description": "-1 (left) to 1 (right)."
+        },
+        "tilt": {
+          "name": "Tilt",
+          "description": "-1 (down) to 1 (up)."
+        },
+        "zoom": {
+          "name": "Zoom",
+          "description": "-1 (out) to 1 (in)."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "Defaults to relative when the camera supports it."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "How long a continuous move lasts, in seconds."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "0.1 to 1."
+        }
+      }
+    },
+    "ptz_preset": {
+      "name": "PTZ preset",
+      "description": "Goes to, saves or deletes a PTZ preset. Saving and deleting need an administrator token.",
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "What to do with the preset."
+        },
+        "preset": {
+          "name": "Preset",
+          "description": "Preset name or token. When saving, an existing preset to overwrite."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the preset to save."
+        }
+      }
+    },
+    "export_clip": {
+      "name": "Export clip",
+      "description": "Exports a recorded clip to the Home Assistant media folder.",
+      "fields": {
+        "start": {
+          "name": "Start",
+          "description": "Start of the clip."
+        },
+        "end": {
+          "name": "End",
+          "description": "End of the clip. Use either end or duration."
+        },
+        "duration": {
+          "name": "Duration",
+          "description": "Clip length in seconds. Use either end or duration."
+        },
+        "filename": {
+          "name": "File name",
+          "description": "Defaults to the name CookieNVR picks."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "incompatible_version": {
+      "message": "The CookieNVR API version is not supported. See the repair issue."
+    },
+    "api_error": {
+      "message": "CookieNVR returned an error: {error}"
+    },
+    "ptz_not_supported": {
+      "message": "{camera} has no PTZ control"
+    },
+    "ptz_no_direction": {
+      "message": "Set at least one of pan, tilt or zoom"
+    },
+    "ptz_no_zoom": {
+      "message": "{camera} cannot zoom"
+    },
+    "ptz_mode_unsupported": {
+      "message": "This camera does not support {mode} moves"
+    },
+    "preset_not_found": {
+      "message": "No preset named or tokened {preset}"
+    },
+    "preset_required": {
+      "message": "Choose a preset"
+    },
+    "preset_name_required": {
+      "message": "Enter a name for the preset"
+    },
+    "admin_required": {
+      "message": "This needs a token from a CookieNVR administrator"
+    },
+    "no_media_dir": {
+      "message": "Home Assistant has no media directory configured"
+    },
+    "export_bad_range": {
+      "message": "The end must be after the start"
+    },
+    "export_end_or_duration": {
+      "message": "Give either end or duration, not both and not neither"
+    },
+    "export_failed": {
+      "message": "Export failed: {error}"
+    }
+  },
+  "issues": {
+    "nvr_outdated": {
+      "title": "Update CookieNVR",
+      "description": "CookieNVR {nvr_version} speaks API version {api_version}, but this integration needs {min} to {max}. Please update CookieNVR."
+    },
+    "integration_outdated": {
+      "title": "Update the CookieNVR integration",
+      "description": "CookieNVR {nvr_version} speaks API version {api_version}, newer than this integration supports ({min} to {max}). Please update the CookieNVR integration."
+    }
+  }
+}
