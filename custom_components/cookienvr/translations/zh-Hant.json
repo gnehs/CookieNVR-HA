@@ -17,15 +17,15 @@
       },
       "zeroconf_confirm": {
         "title": "加入 {name}？",
-        "description": "在 {url} 找到 CookieNVR **{name}**。下一步到 CookieNVR 按「允許」就完成。"
+        "description": "在 {url} 找到 **{name}**。下一步到 CookieNVR 按「允許」就完成。"
       },
       "link_retry": {
         "title": "連線沒有被允許",
-        "description": "按「送出」拿一組新的代碼再試一次。"
+        "description": "按「傳送」拿一組新的代碼再試一次。"
       },
       "reauth_confirm": {
         "title": "重新連接 {name}",
-        "description": "CookieNVR 不再接受這個連線（可能被撤銷了）。按「送出」後，到 CookieNVR 再按一次「允許」。",
+        "description": "CookieNVR 不再接受這個連線（可能被撤銷了）。按「傳送」後，到 CookieNVR 再按一次「允許」。",
         "data": {
           "token": "API Token（進階）"
         },

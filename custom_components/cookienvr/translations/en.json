@@ -17,7 +17,7 @@
       },
       "zeroconf_confirm": {
         "title": "Add {name}?",
-        "description": "Found CookieNVR **{name}** at {url}. Next you approve the connection in CookieNVR."
+        "description": "Found **{name}** at {url}. Next you approve the connection in CookieNVR."
       },
       "link_retry": {
         "title": "Connection not approved",
