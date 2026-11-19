@@ -1,6 +1,9 @@
 {
   "domain": "cookienvr",
   "name": "CookieNVR",
+  "categories": [
+    "security_safety"
+  ],
   "codeowners": [
     "@gnehs"
   ],
