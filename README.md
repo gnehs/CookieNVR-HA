@@ -95,8 +95,9 @@ automation:
 - `cookienvr.ptz_move`：`pan`、`tilt`、`zoom`（-1 到 1）、`mode`（`continuous` 或 `relative`）、`duration`、`speed`。
 - `cookienvr.ptz_preset`：`action`（`goto`、`save`、`delete`）、`preset`、`name`。儲存與刪除需管理員 Token。
 - `cookienvr.export_clip`：`start`，加上 `end` 或 `duration`（擇一），可選 `filename`。影片寫到 HA 的 media 目錄下的 `cookienvr/`，並回傳 `path` 與 `media_content_id`。
+- `cookienvr.export_event_clip`：`event_id`（`cookienvr_event` 裡的事件編號），可選 `boxes`（預設 `true`，把物件框燒進影片）與 `filename`。範圍是事件開始前 5 秒到結束後 5 秒，由 CookieNVR 決定。回傳 `path` 與 `media_content_id`，同 `export_clip`。畫框的影片要由 CookieNVR 重新編碼，所以比原始匯出慢（約 10 分鐘的事件可能要數分鐘），並縮到最高 720p，好讓檔案留在 Telegram 機器人 50 MB 的上傳上限內。`boxes: false` 直接複製原始影像，不用等。事件編號不存在，或 CookieNVR 太舊沒有這個功能時會回報錯誤，後者請更新 CookieNVR。
 
-三個服務的對象都是這個整合的 `camera` 實體。
+四個服務的對象都是這個整合的 `camera` 實體（用 `device_id` 指定攝影機裝置也可以）。
 
 ### 事件
 
@@ -111,13 +112,54 @@ state: update         # start、update（確認了新類別）或 end
 score: 0.42
 labels: [person, car] # 目前為止確認的所有類別，沒有物件辨識時為空
 new_labels: [car]     # 這一次新確認的類別；start 時等於 labels，end 時為空
-thumbnail_url: http://nvr:8765/api/events/42/thumb.jpg?token=cnvr_...
+thumbnail_url: http://nvr:8765/api/events/42/thumb.jpg?boxes=1&token=cnvr_...
+thumbnail_raw_url: http://nvr:8765/api/events/42/thumb.jpg?token=cnvr_...
 playback_url: http://nvr:8765/#/recordings?camera=abc123
 ```
 
 想做「有人才通知」時，觸發條件用 `new_labels` 含 `person`，不論類別是在事件開始時還是進行中才確認都只會觸發一次。
 
-`thumbnail_url` 帶著 Token 以便推播軟體直接抓圖；不要把這個網址貼到公開的地方。
+`thumbnail_url` 是畫上物件辨識框（YOLO）的縮圖，事件沒有框時 CookieNVR 會回傳原圖；`thumbnail_raw_url` 一定是沒畫框的原圖。兩個網址都帶著 Token 以便推播軟體直接抓圖，不要貼到公開的地方。`image.<名稱>_last_event` 顯示的也是畫框版本。舊版 CookieNVR 不認得畫框參數，會直接回傳原圖。
+
+### 範例：偵測到人時，把畫框的圖與影片傳到 Telegram
+
+事件結束時才有完整的影片，所以觸發在 `state: end`，並確認 `labels` 含 `person`。`device_id` 直接取自事件。
+
+```yaml
+automation:
+  - alias: 偵測到人時傳圖與影片到 Telegram
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: cookienvr_event
+        event_data:
+          state: end
+    conditions:
+      - condition: template
+        value_template: "{{ 'person' in trigger.event.data.labels and trigger.event.data.thumbnail_url }}"
+    actions:
+      - action: telegram_bot.send_photo
+        data:
+          url: "{{ trigger.event.data.thumbnail_url }}"
+          caption: "{{ trigger.event.data.camera }} 偵測到人"
+      - action: cookienvr.export_event_clip
+        target:
+          device_id: "{{ trigger.event.data.device_id }}"
+        data:
+          event_id: "{{ trigger.event.data.event_id }}"
+          boxes: true
+        response_variable: clip
+      - action: telegram_bot.send_video
+        data:
+          file: "{{ (clip.values() | first).path }}"
+          caption: "{{ trigger.event.data.camera }} 事件影片"
+```
+
+- `telegram_bot` 的服務欄位（例如收件的 `target` 或 `config_entry_id`）依你的 Telegram 設定補上。
+- `cookienvr.export_event_clip` 的回應以實體為鍵（`camera.<名稱>`），因為對象是 `device_id` 只會有一個實體，所以用 `(clip.values() | first).path` 取路徑。
+- HA 的 `configuration.yaml` 要讓 `telegram_bot` 讀得到檔案：`homeassistant: allowlist_external_dirs` 必須包含 media 目錄（影片在其下的 `cookienvr/`），例如 `/media`；否則 `send_video` 會拒絕該路徑。
+- Telegram 機器人上傳上限是 50 MB。畫框的影片縮到最高 720p 就是為了這個；`boxes: false` 的原始影片不會縮，事件很長時可能超過上限。
+- 匯出的檔案不會自動清除，需要時另外定期清理 `cookienvr/` 目錄。
 
 ### 連線可靠性
 
@@ -159,7 +201,43 @@ Cameras added or removed on the NVR appear or disappear in Home Assistant withou
 
 ### Entities, services and events
 
-Each camera is a device, and the NVR is a device of its own. Entities are listed in the table above. Services `cookienvr.ptz_move`, `cookienvr.ptz_preset` and `cookienvr.export_clip` target the integration's camera entities. Every object class ticked in CookieNVR becomes its own occupancy binary sensor that turns on as soon as an event in progress confirms the class and off when the event ends; sensors follow the ticked classes without a reload, keep their entity across renames and re-ticking, and carry `last_detected` and `event_id`. The bundled model is trained on COCO, which has no package class, so package sensors need a custom model. Every event start, every newly confirmed class (`state: update`) and every end fires `cookienvr_event` with `camera`, `camera_id`, `device_id`, `event_id`, `state`, `score`, `labels`, `new_labels`, `thumbnail_url` and `playback_url`; trigger on `new_labels` containing `person` to be told once per event. The thumbnail URL carries the API token, so keep it private.
+Each camera is a device, and the NVR is a device of its own. Entities are listed in the table above. Services `cookienvr.ptz_move`, `cookienvr.ptz_preset`, `cookienvr.export_clip` and `cookienvr.export_event_clip` target the integration's camera entities (or the camera's device by `device_id`). Every object class ticked in CookieNVR becomes its own occupancy binary sensor that turns on as soon as an event in progress confirms the class and off when the event ends; sensors follow the ticked classes without a reload, keep their entity across renames and re-ticking, and carry `last_detected` and `event_id`. The bundled model is trained on COCO, which has no package class, so package sensors need a custom model. Every event start, every newly confirmed class (`state: update`) and every end fires `cookienvr_event` with `camera`, `camera_id`, `device_id`, `event_id`, `state`, `score`, `labels`, `new_labels`, `thumbnail_url`, `thumbnail_raw_url` and `playback_url`; trigger on `new_labels` containing `person` to be told once per event. `thumbnail_url` is the thumbnail with the detected object boxes drawn (CookieNVR returns the plain thumbnail when the event has no boxes, and a CookieNVR that predates the feature ignores the request and returns it too), `thumbnail_raw_url` is always the plain one, and the `image.<camera>_last_event` entity shows the boxed one. Both URLs carry the API token, so keep them private.
+
+`cookienvr.export_event_clip` takes an `event_id` (from `cookienvr_event`) and optional `boxes` (default `true`, burns the object boxes into the video) and `filename`. CookieNVR picks the range, from 5 seconds before the event starts to 5 seconds after it ends, and the service returns `path` and `media_content_id` like `export_clip`. Clips with boxes are re-encoded by CookieNVR, so they take longer (minutes for a ~10 minute event) and are downscaled to at most 720p to stay under Telegram's 50 MB bot upload limit; `boxes: false` copies the original video and needs no wait. An unknown event id, or a CookieNVR too old to have the feature (update it), is reported as an error.
+
+Example, sending the boxed picture and clip to Telegram when a person was detected. The clip is only complete when the event ends, hence `state: end`:
+
+```yaml
+automation:
+  - alias: Send the person picture and clip to Telegram
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: cookienvr_event
+        event_data:
+          state: end
+    conditions:
+      - condition: template
+        value_template: "{{ 'person' in trigger.event.data.labels and trigger.event.data.thumbnail_url }}"
+    actions:
+      - action: telegram_bot.send_photo
+        data:
+          url: "{{ trigger.event.data.thumbnail_url }}"
+          caption: "{{ trigger.event.data.camera }}: person detected"
+      - action: cookienvr.export_event_clip
+        target:
+          device_id: "{{ trigger.event.data.device_id }}"
+        data:
+          event_id: "{{ trigger.event.data.event_id }}"
+          boxes: true
+        response_variable: clip
+      - action: telegram_bot.send_video
+        data:
+          file: "{{ (clip.values() | first).path }}"
+          caption: "{{ trigger.event.data.camera }}: event clip"
+```
+
+Add the recipient fields of your `telegram_bot` setup (for example `target` or `config_entry_id`). The service response is keyed by entity id, and a `device_id` target resolves to one camera entity, hence `(clip.values() | first).path`. Home Assistant's `allowlist_external_dirs` (under `homeassistant:` in `configuration.yaml`) must include the media directory, because `telegram_bot` only reads files from allowed directories and the clip lands in `cookienvr/` below it. Telegram bots can upload 50 MB at most, so a long `boxes: false` clip can exceed it. Exported files are not deleted automatically.
 
 Each state sensor trained in CookieNVR (for example a shutter that is closed, moving or open) becomes an enum `sensor` on its camera's device, such as `sensor.front_door_shutter`, with the classes you configured as its options. Sensors, renames and class changes follow without a reload, and the entity is keyed by the sensor's fixed id so a rename keeps your automations. The state is `unknown` while CookieNVR has no verified state (just started, not yet confirmed, untrained, paused or the camera has no picture; CookieNVR resets the state itself in these cases), and `unavailable` only when the NVR cannot be reached or the sensor or camera is gone. Attributes are `score`, `since`, `candidate` (the state being verified) and `problem` (`disabled`, `untrained`, `stale-model`, `camera-off`, `paused` or `worker`, empty when all is well). Every change also fires `cookienvr_state_change` with `camera`, `camera_id`, `device_id`, `sensor`, `sensor_id`, `from` (empty for a sensor's first reading), `to`, `score`, `changed_at` and `thumbnail_url` (the picture of the region at that moment, carrying the API token); use it to attach the picture to a notification, and trigger on the entity's state otherwise. A CookieNVR without state classification keeps working and simply has no such sensors.
 
