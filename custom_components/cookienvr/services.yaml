@@ -99,3 +99,25 @@ export_clip:
       example: front-door.mp4
       selector:
         text:
+
+export_event_clip:
+  target:
+    entity:
+      integration: cookienvr
+      domain: camera
+  fields:
+    event_id:
+      required: true
+      example: 42
+      selector:
+        number:
+          min: 1
+          mode: box
+    boxes:
+      default: true
+      selector:
+        boolean:
+    filename:
+      example: front-door-person.mp4
+      selector:
+        text:

@@ -365,6 +365,24 @@
           "description": "預設用 CookieNVR 決定的檔名。"
         }
       }
+    },
+    "export_event_clip": {
+      "name": "匯出事件影片",
+      "description": "把偵測到的事件錄影（事件開始前 5 秒到結束後 5 秒）匯出到 Home Assistant 的 media 目錄，並回傳檔案路徑。畫框的影片由 CookieNVR 重新編碼（最高 720p），需要較長時間。",
+      "fields": {
+        "event_id": {
+          "name": "事件編號",
+          "description": "cookienvr_event 裡的 event_id。"
+        },
+        "boxes": {
+          "name": "畫上框線",
+          "description": "把偵測到的物件框燒進影片。需要重新編碼，所以比較久。"
+        },
+        "filename": {
+          "name": "檔名",
+          "description": "預設用 CookieNVR 決定的檔名。"
+        }
+      }
     }
   },
   "exceptions": {
@@ -409,6 +427,12 @@
     },
     "export_failed": {
       "message": "匯出失敗：{error}"
+    },
+    "event_not_found": {
+      "message": "CookieNVR 找不到事件 {event}"
+    },
+    "event_clip_unsupported": {
+      "message": "這個 CookieNVR 不支援匯出事件影片，請更新 CookieNVR。"
     }
   },
   "issues": {

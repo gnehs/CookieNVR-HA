@@ -29,5 +29,6 @@ ISSUE_INTEGRATION_OUTDATED = "integration_outdated"
 
 PTZ_NUDGE_SPEED = 0.5
 PTZ_NUDGE_SECONDS = 0.3
-EXPORT_TIMEOUT = 15 * 60
+# A boxed event clip is re-encoded by the NVR, so a ~10 minute event can take a while.
+EXPORT_TIMEOUT = 30 * 60
 EXPORT_POLL_SECONDS = 1.0

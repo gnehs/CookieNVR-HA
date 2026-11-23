@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
-from .api import CookieNVRApiError, CookieNVRConnectionError
+from .api import CookieNVRApiError, CookieNVRClient, CookieNVRConnectionError
 from .const import DOMAIN, EXPORT_POLL_SECONDS, EXPORT_TIMEOUT
 from .coordinator import CookieNVRCoordinator
 from .models import Json, camera_name, preset_options
@@ -128,22 +129,16 @@ def media_target(hass: HomeAssistant) -> tuple[str, Path]:
     return source_id, Path(dirs[source_id]) / "cookienvr"
 
 
-async def export_clip(
+async def _export_to_media(
     hass: HomeAssistant,
-    coordinator: CookieNVRCoordinator,
-    camera_id: str,
-    start: datetime,
-    end: datetime,
+    client: CookieNVRClient,
+    create_job: Callable[[], Awaitable[Json]],
     filename: str | None,
 ) -> dict[str, str]:
-    if end <= start:
-        raise _invalid("export_bad_range")
+    """Run an export job to completion, download it into the media folder and delete it on the NVR."""
     source_id, directory = media_target(hass)
-    client = coordinator.client
     try:
-        job = await client.create_export(
-            camera_id, int(start.timestamp() * 1000), int(end.timestamp() * 1000), hass.config.time_zone
-        )
+        job = await create_job()
         async with asyncio.timeout(EXPORT_TIMEOUT):
             while job["state"] in ("queued", "running"):
                 await asyncio.sleep(EXPORT_POLL_SECONDS)
@@ -171,3 +166,47 @@ async def export_clip(
     except (CookieNVRApiError, CookieNVRConnectionError) as err:
         raise _api_error(err) from err
     return {"path": str(dest), "media_content_id": f"media-source://media_source/{source_id}/cookienvr/{name}"}
+
+
+async def export_clip(
+    hass: HomeAssistant,
+    coordinator: CookieNVRCoordinator,
+    camera_id: str,
+    start: datetime,
+    end: datetime,
+    filename: str | None,
+) -> dict[str, str]:
+    if end <= start:
+        raise _invalid("export_bad_range")
+    client = coordinator.client
+    return await _export_to_media(
+        hass,
+        client,
+        lambda: client.create_export(
+            camera_id, int(start.timestamp() * 1000), int(end.timestamp() * 1000), hass.config.time_zone
+        ),
+        filename,
+    )
+
+
+async def export_event_clip(
+    hass: HomeAssistant,
+    coordinator: CookieNVRCoordinator,
+    event_id: int,
+    boxes: bool,
+    filename: str | None,
+) -> dict[str, str]:
+    client = coordinator.client
+
+    async def create_job() -> Json:
+        try:
+            return await client.create_event_clip(event_id, boxes, hass.config.time_zone)
+        except CookieNVRApiError as err:
+            if err.status != 404:
+                raise
+            # an NVR without the route answers http.notFound, a missing event answers events.notFound
+            if err.code == "events.notFound":
+                raise _invalid("event_not_found", event=str(event_id)) from err
+            raise _invalid("event_clip_unsupported") from err
+
+    return await _export_to_media(hass, client, create_job, filename)

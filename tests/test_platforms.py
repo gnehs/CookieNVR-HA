@@ -152,6 +152,7 @@ async def test_last_event_sensor_and_image(hass: HomeAssistant, nvr: FakeNVR, lo
     assert await entity.async_image() == THUMB
     assert await entity.async_image() == THUMB
     assert len([r for r in nvr.requests if r[1] == "/api/events/5/thumb.jpg"]) == 1  # second call came from cache
+    assert nvr.thumb_queries == [{"boxes": "1"}]
     assert await hass.data[image.DATA_COMPONENT].get_entity("image.garage_last_event").async_image() is None
 
 

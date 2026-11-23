@@ -130,6 +130,8 @@ class FakeNVR:
         self.requests: list[tuple[str, str, Any]] = []
         self.export_job: dict[str, Any] | None = None
         self.export_state = "done"
+        self.clip_route = True
+        self.thumb_queries: list[dict[str, str]] = []
         self.snapshot_ok = True
         self.stream_status = 200
         self._streams: list[asyncio.Queue[bytes | None]] = []
@@ -164,6 +166,7 @@ class FakeNVR:
         r.add_get("/api/events/{id}/thumb.jpg", self._thumb)
         r.add_get("/api/states", self._states)
         r.add_get("/api/system", self._system)
+        r.add_post("/api/events/{id}/clip", self._event_clip)
         r.add_post("/api/exports", self._export_create)
         r.add_get("/api/exports/{id}", self._export_get)
         r.add_get("/api/exports/{id}/file", self._export_file)
@@ -349,6 +352,7 @@ class FakeNVR:
     async def _thumb(self, request: web.Request) -> web.Response:
         self._auth(request)
         self.requests.append(("GET", request.path, None))
+        self.thumb_queries.append({k: v for k, v in request.query.items() if k != "token"})
         return web.Response(body=THUMB, content_type="image/jpeg")
 
     async def _states(self, request: web.Request) -> web.Response:
@@ -371,6 +375,23 @@ class FakeNVR:
             "state": self.export_state,
             "error": "沒有錄影" if self.export_state == "failed" else None,
             "fileName": "Front Door_20260101-120000.mp4",
+        }
+        return web.json_response(self.export_job, status=201)
+
+    async def _event_clip(self, request: web.Request) -> web.Response:
+        self._auth(request)
+        body = await self._record(request)
+        if not self.clip_route:
+            return web.json_response({"error": "找不到資源", "code": "http.notFound"}, status=404)
+        event = next((e for e in self.events if e["id"] == int(request.match_info["id"])), None)
+        if event is None:
+            return web.json_response({"error": "找不到事件", "code": "events.notFound"}, status=404)
+        self.export_job = {
+            "id": "exp1",
+            "cameraId": event["cameraId"],
+            "state": self.export_state,
+            "error": "沒有錄影" if self.export_state == "failed" else None,
+            "fileName": "Front Door_event7_boxes.mp4" if body.get("boxes") else "Front Door_event7.mp4",
         }
         return web.json_response(self.export_job, status=201)
 

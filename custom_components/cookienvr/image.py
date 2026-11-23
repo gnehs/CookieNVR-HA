@@ -56,7 +56,7 @@ class LastEventImage(CookieNVRCameraEntity, ImageEntity):
         if self._cache and self._cache[0] == key:
             return self._cache[1]
         try:
-            data = await self.coordinator.client.event_thumb(event["id"])
+            data = await self.coordinator.client.event_thumb(event["id"], boxes=True)
         except (CookieNVRApiError, CookieNVRConnectionError):
             return None
         if data is not None:

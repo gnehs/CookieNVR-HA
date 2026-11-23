@@ -365,6 +365,24 @@
           "description": "Defaults to the name CookieNVR picks."
         }
       }
+    },
+    "export_event_clip": {
+      "name": "Export event clip",
+      "description": "Exports the recording of a detected event, from 5 seconds before it starts to 5 seconds after it ends, to the Home Assistant media folder and returns its path. Clips with boxes drawn are re-encoded by CookieNVR (at most 720p) and take longer.",
+      "fields": {
+        "event_id": {
+          "name": "Event ID",
+          "description": "The event_id of a cookienvr_event."
+        },
+        "boxes": {
+          "name": "Draw boxes",
+          "description": "Burn the detected object boxes into the video. This re-encodes the clip, so it takes longer."
+        },
+        "filename": {
+          "name": "File name",
+          "description": "Defaults to the name CookieNVR picks."
+        }
+      }
     }
   },
   "exceptions": {
@@ -409,6 +427,12 @@
     },
     "export_failed": {
       "message": "Export failed: {error}"
+    },
+    "event_not_found": {
+      "message": "CookieNVR has no event {event}"
+    },
+    "event_clip_unsupported": {
+      "message": "This CookieNVR cannot export event clips. Update CookieNVR."
     }
   },
   "issues": {

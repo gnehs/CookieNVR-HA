@@ -31,10 +31,11 @@ class CookieNVRAuthError(CookieNVRError):
 class CookieNVRApiError(CookieNVRError):
     """The NVR answered with an HTTP error."""
 
-    def __init__(self, status: int, message: str) -> None:
+    def __init__(self, status: int, message: str, code: str | None = None) -> None:
         super().__init__(f"{status}: {message}")
         self.status = status
         self.message = message
+        self.code = code
 
 
 def normalize_url(raw: str) -> str:
@@ -61,23 +62,27 @@ class CookieNVRClient:
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._token}"}
 
-    def token_url(self, path: str) -> str:
+    def token_url(self, path: str, query: str = "") -> str:
         """A URL that carries the token in the query, for clients that cannot send headers."""
-        return f"{self.base_url}{path}?token={quote(self._token, safe='')}"
+        prefix = f"{query}&" if query else ""
+        return f"{self.base_url}{path}?{prefix}token={quote(self._token, safe='')}"
 
     async def _raise_for_status(self, resp: aiohttp.ClientResponse) -> None:
         if resp.status < 400:
             return
         message = resp.reason or ""
+        code = None
         try:
             body = await resp.json(content_type=None)
             if isinstance(body, dict) and isinstance(body.get("error"), str):
                 message = body["error"]
+            if isinstance(body, dict) and isinstance(body.get("code"), str):
+                code = body["code"]
         except (aiohttp.ClientError, ValueError):
             pass
         if resp.status == 401:
             raise CookieNVRAuthError(message)
-        raise CookieNVRApiError(resp.status, message)
+        raise CookieNVRApiError(resp.status, message, code)
 
     async def _request(
         self,
@@ -152,9 +157,14 @@ class CookieNVRClient:
                 return None
             raise
 
-    async def event_thumb(self, event_id: int) -> bytes | None:
+    async def event_thumb(self, event_id: int, *, boxes: bool = False) -> bytes | None:
         try:
-            return await self._request("GET", f"/api/events/{event_id}/thumb.jpg", raw=True)
+            return await self._request(
+                "GET",
+                f"/api/events/{event_id}/thumb.jpg",
+                params={"boxes": 1} if boxes else None,
+                raw=True,
+            )
         except CookieNVRApiError as err:
             if err.status == 404:
                 return None
@@ -184,6 +194,9 @@ class CookieNVRClient:
         return await self._request(
             "POST", "/api/exports", body={"cameraId": camera_id, "startMs": start_ms, "endMs": end_ms, "tz": tz}
         )
+
+    async def create_event_clip(self, event_id: int, boxes: bool, tz: str) -> Json:
+        return await self._request("POST", f"/api/events/{event_id}/clip", body={"boxes": boxes, "tz": tz})
 
     async def get_export(self, export_id: str) -> Json:
         return await self._request("GET", f"/api/exports/{quote(export_id, safe='')}")

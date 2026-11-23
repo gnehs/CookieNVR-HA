@@ -40,6 +40,11 @@ EXPORT_SCHEMA = {
     vol.Optional("duration"): vol.All(vol.Coerce(float), vol.Range(min=1)),
     vol.Optional("filename"): cv.string,
 }
+EXPORT_EVENT_CLIP_SCHEMA = {
+    vol.Required("event_id"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    vol.Optional("boxes", default=True): cv.boolean,
+    vol.Optional("filename"): cv.string,
+}
 
 
 async def async_setup_entry(
@@ -56,6 +61,12 @@ async def async_setup_entry(
     platform.async_register_entity_service("ptz_preset", PTZ_PRESET_SCHEMA, "async_ptz_preset")
     platform.async_register_entity_service(
         "export_clip", EXPORT_SCHEMA, "async_export_clip", supports_response=SupportsResponse.OPTIONAL
+    )
+    platform.async_register_entity_service(
+        "export_event_clip",
+        EXPORT_EVENT_CLIP_SCHEMA,
+        "async_export_event_clip",
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
 
@@ -116,3 +127,8 @@ class CookieNVRCamera(CookieNVRCameraEntity, Camera):
         start = dt_util.as_utc(start)
         end_utc = dt_util.as_utc(end) if end is not None else start + timedelta(seconds=duration or 0)
         return await actions.export_clip(self.hass, self.coordinator, self.camera_id, start, end_utc, filename)
+
+    async def async_export_event_clip(
+        self, event_id: int, boxes: bool = True, filename: str | None = None
+    ) -> dict[str, Any]:
+        return await actions.export_event_clip(self.hass, self.coordinator, event_id, boxes, filename)

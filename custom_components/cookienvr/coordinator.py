@@ -204,6 +204,11 @@ class CookieNVRCoordinator(DataUpdateCoordinator[NVRState]):
                 "labels": list(event.get("labels") or []),
                 "new_labels": sorted(new_labels),
                 "thumbnail_url": (
+                    self.client.token_url(f"/api/events/{event['id']}/thumb.jpg", "boxes=1")
+                    if event.get("hasThumb")
+                    else None
+                ),
+                "thumbnail_raw_url": (
                     self.client.token_url(f"/api/events/{event['id']}/thumb.jpg") if event.get("hasThumb") else None
                 ),
                 "playback_url": f"{self.client.base_url}/#/recordings?camera={camera_id}",

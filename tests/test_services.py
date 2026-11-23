@@ -1,7 +1,8 @@
-"""ptz_move, ptz_preset and export_clip."""
+"""ptz_move, ptz_preset, export_clip and export_event_clip."""
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,9 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from custom_components.cookienvr.const import DOMAIN
 
-from .fake_nvr import MP4, FakeNVR
+from .fake_nvr import MP4, FakeNVR, make_event
 
+T0 = (int(time.time()) - 3600) * 1000
 FRONT = {"entity_id": "camera.front_door"}
 
 
@@ -154,3 +156,52 @@ async def test_export_clip_failures(hass: HomeAssistant, nvr: FakeNVR, setup, tm
     hass.config.media_dirs = {}
     with pytest.raises(ServiceValidationError, match="media directory"):
         await _call(hass, "export_clip", {**FRONT, "start": start, "duration": 10}, return_response=True)
+
+
+async def test_export_event_clip_with_boxes(hass: HomeAssistant, nvr: FakeNVR, setup, tmp_path: Path) -> None:
+    hass.config.media_dirs = {"local": str(tmp_path)}
+    nvr.events.append(make_event(7, "cam1", T0, T0 + 9000, labels=["person"]))
+    result = await _call(hass, "export_event_clip", {**FRONT, "event_id": 7}, return_response=True)
+    path = tmp_path / "cookienvr" / "Front Door_event7_boxes.mp4"
+    assert path.read_bytes() == MP4
+    assert result["camera.front_door"] == {
+        "path": str(path),
+        "media_content_id": "media-source://media_source/local/cookienvr/Front Door_event7_boxes.mp4",
+    }
+    assert nvr.calls("POST", "/api/events/7/clip") == [{"boxes": True, "tz": hass.config.time_zone}]
+    assert [r for r in nvr.requests if r[0] == "DELETE" and r[1] == "/api/exports/exp1"]
+
+
+async def test_export_event_clip_without_boxes_and_custom_name(
+    hass: HomeAssistant, nvr: FakeNVR, setup, tmp_path: Path
+) -> None:
+    hass.config.media_dirs = {"local": str(tmp_path)}
+    nvr.events.append(make_event(7, "cam1", T0, T0 + 9000))
+    result = await _call(
+        hass,
+        "export_event_clip",
+        {**FRONT, "event_id": 7, "boxes": False, "filename": "../person"},
+        return_response=True,
+    )
+    assert (tmp_path / "cookienvr" / "person.mp4").read_bytes() == MP4
+    assert result["camera.front_door"]["path"] == str(tmp_path / "cookienvr" / "person.mp4")
+    assert nvr.calls("POST", "/api/events/7/clip")[0]["boxes"] is False
+
+
+async def test_export_event_clip_errors(hass: HomeAssistant, nvr: FakeNVR, setup, tmp_path: Path) -> None:
+    hass.config.media_dirs = {"local": str(tmp_path)}
+    with pytest.raises(ServiceValidationError, match="no event 99"):
+        await _call(hass, "export_event_clip", {**FRONT, "event_id": 99}, return_response=True)
+    nvr.clip_route = False
+    with pytest.raises(ServiceValidationError, match="Update CookieNVR"):
+        await _call(hass, "export_event_clip", {**FRONT, "event_id": 99}, return_response=True)
+    nvr.clip_route = True
+    nvr.events.append(make_event(7, "cam1", T0, T0 + 9000))
+    nvr.export_state = "failed"
+    with pytest.raises(HomeAssistantError, match="沒有錄影"):
+        await _call(hass, "export_event_clip", {**FRONT, "event_id": 7}, return_response=True)
+    for bad in (0, -3):
+        with pytest.raises(vol.Invalid):
+            await _call(hass, "export_event_clip", {**FRONT, "event_id": bad}, return_response=True)
+    with pytest.raises(vol.Invalid):
+        await _call(hass, "export_event_clip", FRONT, return_response=True)

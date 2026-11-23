@@ -47,7 +47,8 @@ async def test_motion_and_event_messages(hass: HomeAssistant, nvr: FakeNVR, setu
     data = fired[0].data
     assert data["camera"] == "Front Door" and data["camera_id"] == "cam1" and data["event_id"] == 7
     assert data["labels"] == [] and data["score"] == 0.42
-    assert data["thumbnail_url"] == f"{nvr.url}/api/events/7/thumb.jpg?token=cnvr_testtoken"
+    assert data["thumbnail_url"] == f"{nvr.url}/api/events/7/thumb.jpg?boxes=1&token=cnvr_testtoken"
+    assert data["thumbnail_raw_url"] == f"{nvr.url}/api/events/7/thumb.jpg?token=cnvr_testtoken"
     assert data["playback_url"] == f"{nvr.url}/#/recordings?camera=cam1"
     device = get_device(hass, setup, "cam1")
     assert data["device_id"] == device.id
